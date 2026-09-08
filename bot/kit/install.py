@@ -129,7 +129,10 @@ def cmd_check_kit_ref(args):
         # ТОЛЬКО файлами пинов (манифест релиза, обёртка с пинами, манифест комплекта). Любой иной файл в
         # R — отказ: код обязан быть тем самым K, который назван манифестом.
         parent = _git(kit_root, "rev-parse", "HEAD^")
-        if parent.returncode != 0 or parent.stdout.strip() != expected:
+        if parent.returncode != 0:
+            shallow = os.path.exists(os.path.join(kit_root, ".git", "shallow")) or _git(kit_root, "rev-parse", "--is-shallow-repository").stdout.strip() == "true"
+            raise Refuse("пин комплекта: HEAD checkout'а %s без родителя%s — релизный слой над kit.ref %s не проверить; checkout комплекта обязан быть глубиной 2 (fetch-depth: 2 в обёртке)" % (actual[:12], " (МЕЛКИЙ клон)" if shallow else "", expected[:12]))
+        if parent.stdout.strip() != expected:
             raise Refuse("пин комплекта расходится: HEAD checkout'а %s, манифест релиза kit.ref %s (и HEAD не релизный слой над ним)" % (actual, expected))
         changed = _git(kit_root, "diff", "--name-only", expected, actual).stdout.split()
         extra = sorted(set(changed) - set(RELEASE_LAYER_PATHS))

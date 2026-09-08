@@ -9,8 +9,9 @@
 #
 # ПИНЫ (заполняет релиз; до заполнения предикат печатает `pins: unfilled`):
 #   actions/checkout@<полный SHA коммита action>   — два раза ниже
-#   ref: <полный SHA коммита комплекта>             — версия комплекта, которую ставим; обязан
-#        совпадать с kit.ref в kit/validator-release.yaml (шаг «check kit pin» сверяет по HEAD)
+#   ref: <полный SHA коммита комплекта>             — релизный коммит R (слой над кодовым K = kit.ref
+#        манифеста); шаг «check kit pin» сверяет по HEAD и HEAD^ — потому fetch-depth: 2, не 1
+#        (мелкий клон без родителя ронял бы проверку релизного слоя; живой прогон 2026-09-08)
 # Учётные данные checkout репозитория заказчика (В-4): токен системного аккаунта с фолбэком на
 # штатный токен раннера ЛИБО deploy-key — оба подключены, пустой секрет checkout игнорирует;
 # в секретах задаётся ровно один из двух (install.py check-secrets).
@@ -47,6 +48,7 @@ jobs:
           repository: alexCherryPick/workshop-kit
           ref: PIN-KIT-COMMIT-SHA
           path: .workshop-kit
+          fetch-depth: 2
       - name: check kit pin
         run: python3 .workshop-kit/bot/kit/install.py check-kit-ref
       - name: check secrets

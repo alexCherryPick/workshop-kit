@@ -312,6 +312,24 @@ class KitRefTests(unittest.TestCase):
         rc, out = self._run(K)
         self.assertEqual(rc, 2); self.assertIn("расходится", out)
 
+    def test_release_layer_needs_depth_two_shallow_clone_named(self):
+        # живой прогон 2026-09-08: мелкий клон (depth 1) у релизного коммита R не имеет родителя — отказ обязан НАЗВАТЬ причину
+        K = self.head
+        os.makedirs(os.path.join(self.checkout, "bot", "kit"))
+        with open(os.path.join(self.checkout, "bot", "kit", "validator-release.yaml"), "w") as fh:
+            fh.write("pins\n")
+        git(self.checkout, "add", "-A"); git(self.checkout, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-qm", "release layer")
+        R = git(self.checkout, "rev-parse", "HEAD").stdout.strip()
+        shallow = tempfile.mkdtemp(prefix="shallow-")
+        run(["git", "clone", "-q", "--depth", "1", "file://" + self.checkout, shallow])
+        rc, out = run([os.path.join(self.k.kit, "install.py"), "--kit", self.k.kit, "check-kit-ref", "--release", self._release(K), "--kit-checkout", shallow])
+        self.assertEqual(rc, 2); self.assertIn("МЕЛКИЙ клон", out); self.assertIn("fetch-depth: 2", out)
+        deep = tempfile.mkdtemp(prefix="deep-")
+        run(["git", "clone", "-q", "--depth", "2", "file://" + self.checkout, deep])
+        rc, out = run([os.path.join(self.k.kit, "install.py"), "--kit", self.k.kit, "check-kit-ref", "--release", self._release(K), "--kit-checkout", deep])
+        self.assertEqual(rc, 0, out); self.assertIn("релизный слой", out)
+        shutil.rmtree(shallow, ignore_errors=True); shutil.rmtree(deep, ignore_errors=True)
+
     def test_shipped_release_manifest_pin_refuses_foreign_checkout(self):
         # до релиза пин — плейсхолдер («не заполнен»); после релиза — полный SHA, чужой checkout «расходится»; пропуска нет
         import re as _re

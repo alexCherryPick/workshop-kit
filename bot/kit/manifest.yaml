@@ -21,7 +21,7 @@ entries:
   - src: bot/heartbeat.py
     dst: .workshop/bot/heartbeat.py
     role: code
-    sha256: aa1fb79552cd7ab36451a8b05fbcb28c610b34507e3167efbc14c69167a14969
+    sha256: 05b15789138d1145db946bf1e81f23ccfff6fe5118d31a6927cdda3d3addc66c
     mode: 0644
   - src: bot/identity.py
     dst: .workshop/bot/identity.py
@@ -56,7 +56,7 @@ entries:
   - src: bot/kit/templates/bot-sessions.yaml
     dst: .workshop/bot-sessions.yaml
     role: state
-    sha256: b95f1e935058259354ae30b44858fdc1cc46aee625610cd14a98a3c23e467553
+    sha256: a8a32cea9bec797347cea1282d8aa9ed182a3158b31d96911de932e97717944f
     mode: 0644
   - src: bot/kit/templates/bot.yaml
     dst: .workshop/bot.yaml
@@ -76,7 +76,7 @@ entries:
   - src: bot/kit/workflows/bootstrap.yml
     dst: .github/workflows/workshop-bot-bootstrap.yml
     role: manual
-    sha256: d6419ab7d2d6aa91fa41d2019930c9d9f79778e197f28e091b621474ad9ad4ae
+    sha256: bf5d2ad4b691ad4a90d515016f32c91e188df72f4f44960dcca27c8e93fea9f5
     mode: 0644
   - src: bot/kit/workflows/heartbeat.yml
     dst: .github/workflows/workshop-bot-heartbeat.yml
@@ -106,7 +106,7 @@ entries:
   - src: bot/poll.py
     dst: .workshop/bot/poll.py
     role: code
-    sha256: 58485002ff33509870d38ce6ce971c4725648e2d9e7daed7aa83eb06976c123f
+    sha256: dfd8588ab02247a54086d836b680611d4864daee3298745848a8d76dae442b39
     mode: 0644
   - src: bot/secrets.py
     dst: .workshop/bot/secrets.py
@@ -121,7 +121,7 @@ entries:
   - src: bot/state_store.py
     dst: .workshop/bot/state_store.py
     role: code
-    sha256: 4334125afc7b57177f9dac634801c61a7154c93cdf11c7b763eedca5f3dfe1b4
+    sha256: c6530c637f792d71ec8521398c34ed8413e5fe9423d768f8774613381c53a165
     mode: 0644
   - src: bot/tg.py
     dst: .workshop/bot/tg.py
