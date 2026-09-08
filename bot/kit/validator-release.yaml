@@ -1,0 +1,34 @@
+# МАНИФЕСТ РЕЛИЗНОГО БИНАРЯ ВАЛИДАТОРА — «версия → путь/URL → sha256 → назначение» (D09 T1 §1Д(б),
+# вердикт В-3). Режим применения — СВЕРКА: install.py validator скачивает артефакт пиннованной
+# версии и сравнивает sha256 с этим файлом; несовпадение — громкий отказ с названной причиной,
+# никогда «продолжим без валидатора». Значение sha256, не являющееся 64 hex-символами
+# (плейсхолдер ниже), при сверке ПАДАЕТ, а не проходит: сверять не с чем.
+# Фактические sha256 заполняет первый релиз (T6 / релизный канал); до него комплект ставится
+# только с локальным бинарём (install.py validator --path <бинарь> для прогонов).
+# Блок kit — ПИН КОМПЛЕКТА: репозиторий канала выдачи и полный SHA коммита комплекта, который
+# bootstrap.yml извлекает (with.repository / with.ref обязаны совпадать — сверяет install.py
+# check-kit-ref по HEAD checkout'а комплекта). До релиза ref — плейсхолдер НЕ в форме SHA:
+# предикат §2 печатает его как незаполненный пин, check-kit-ref его ОТКАЗЫВАЕТ («пин не
+# заполнен»), а не принимает; заполнить его печатью нулей нельзя — нулевой дайджест/SHA есть
+# отдельный отказ. Скачивание артефакта — только https://, небезопасный редирект — отказ.
+schema_version: 1
+kit:
+  repository: alexCherryPick/workshop-kit
+  ref: 0bebf9b5145b8e0b73dce8acf4dc554521e0ee5d
+  channel: public
+  note: "канал выдачи — ОТДЕЛЬНЫЙ публичный репозиторий комплекта workshop-kit (вердикт alex 2в, 2026-09-08): зеркало bot/ из закрытого монорепо + релизы валидатора; kit.ref — SHA коммита ЗЕРКАЛА; клиентская копия bootstrap.yml с пинами — ассет релиза (витрина сайта)"
+pinned_version: "0.1.0"
+fallback: "сборка из исходников: cargo build --release в validator/ среза kit.ref; объявленный запасной ход для прогонов, не импровизация установщика (install.py validator --path)"
+releases:
+  - version: "0.1.0"
+    source_commit: 0bebf9b5145b8e0b73dce8acf4dc554521e0ee5d
+    note: "сборка .github/workflows/validator-release.yml на срезе 0bebf9b5145b (cargo test в релизной сборке); GitHub Release validator-v0.1.0 — вердикт alex 4а"
+    artifacts:
+      - target: x86_64-unknown-linux-gnu
+        url: "https://github.com/alexCherryPick/workshop-kit/releases/download/validator-v0.1.0/workshop-validator-x86_64-unknown-linux-gnu"
+        sha256: "5feae5c0a7cd4932abe13081b0e8f8b74a2c12c1a88163dd11a7167767ef6c9d"
+        purpose: "бинарь валидатора для CI заказчика (носитель-бинарь D05): check-line/check-pair до коммита, check-corpus в reconciler; кладётся в .workshop-bin/workshop-validator репозитория заказчика (каталог самоигнорируемый, в коммит не попадает)"
+      - target: aarch64-apple-darwin
+        url: "https://github.com/alexCherryPick/workshop-kit/releases/download/validator-v0.1.0/workshop-validator-aarch64-apple-darwin"
+        sha256: "8e01807b8e759b3f68f41ff9b17a5d764f790d9873bb7399a92d36940570ac4e"
+        purpose: "тот же бинарь для локальных прогонов харнесса на macOS"

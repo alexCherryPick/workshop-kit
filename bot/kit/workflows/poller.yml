@@ -1,0 +1,45 @@
+# workshop-bot-poller — обёртка поллера (D09 T3). Ставится КОМПЛЕКТОМ (роль workflow, путь
+# .github/workflows/workshop-bot-poller.yml), руками не копируется. Тонкая по структурному
+# предикату §2 (bot/kit/wrapper_predicate.py --require-hooks-path): каждый run — один вызов
+# скрипта комплекта либо шаг hooksPath; политики (пороги, ретраи, число попыток) — в .workshop/bot.yaml.
+#
+# Что делает один прогон: checkout под учётными данными системного аккаунта (токен с фолбэком на
+# штатный токен раннера ЛИБО deploy-key — оба подключены, пустой секрет checkout игнорирует) →
+# пиннованный бинарь валидатора по манифесту (install.py validator; локальный кеш .workshop-bin) →
+# хук репозиторного рубежа секретов (T4) → poll.py: getUpdates с хранимым offset, запись, коммит,
+# push, ответ, offset. Обязанность rc (§2 rc_duty): poll.py возвращает 0 при штатном прогоне,
+# 2 при исходах класса 10–13 (конфликт Р1/файла состояния, исчерпание ретраев, отказ прогона,
+# сбой инструмента) — обёртка падает ГРОМКО; 10 — сбой самого поллера (getMe, файлы состояния).
+# Одна concurrency-группа с bootstrap и heartbeat: два читателя одного курсора невозможны по построению.
+# Расписание: раз в 15 минут — компромисс между задержкой ответа и квотой минут CI; порог сторожа
+# (20 ч) и окно retention (~24 ч) не зависят от частоты крона.
+name: workshop-bot-poller
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: workshop-bot
+  cancel-in-progress: false
+env:
+  WORKSHOP_TG_BOT_TOKEN: ${{ secrets.WORKSHOP_TG_BOT_TOKEN }}
+  WORKSHOP_FORGE_TOKEN: ${{ secrets.WORKSHOP_FORGE_TOKEN }}
+  WORKSHOP_DEPLOY_KEY: ${{ secrets.WORKSHOP_DEPLOY_KEY }}
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout customer repo
+        uses: actions/checkout@PIN-ACTION-CHECKOUT-SHA
+        with:
+          token: ${{ secrets.WORKSHOP_FORGE_TOKEN || github.token }}
+          ssh-key: ${{ secrets.WORKSHOP_DEPLOY_KEY }}
+          fetch-depth: 0
+      - name: fetch and verify validator binary
+        run: python3 .workshop/bot/kit/install.py validator
+      - name: hooks path
+        run: git config core.hooksPath .workshop/hooks
+      - name: poll
+        run: python3 .workshop/bot/poll.py

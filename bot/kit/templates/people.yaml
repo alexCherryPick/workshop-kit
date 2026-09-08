@@ -1,0 +1,47 @@
+# КАРТА ЛЮДЕЙ РЕПОЗИТОРИЯ ЗАКАЗЧИКА — шаблон комплекта для РУЧНОГО шага реестра install-steps.yaml
+# (people_map): заказчик копирует его в .workshop/people.yaml и заменяет примеры своими записями.
+# Роль в манифесте — manual: установщик этот файл НИКОГДА не создаёт и не перезаписывает (это
+# данные заказчика, а синтетические примеры в его репозиторий не попадают). Единственная правда
+# о людях (D09 T1 §4; вердикт В-6; REQ-065, REQ-090).
+#
+# Одна запись на человека. Обязательны: handle (идентичность в содержимом записей: person
+# контейнера, автор коммента), name, timezone (IANA — источник обязательного поля timezone
+# контейнера времени при ленивом создании). Необязательны и независимы: telegram_id (бот),
+# forge_login (фронты, device flow) — каждый уникален по карте (дубль = неоднозначная атрибуция).
+# status: active | pending (pending — самозапись, П-8). role: admin — адресат сообщений сторожа
+# (алярм, зависший учёт, счётчик отклонений; .workshop/bot.yaml watchdog.alarm_to: admins);
+# хотя бы один admin с telegram_id обязателен (install.py check-people).
+# aliases — прежние handle того же человека (временные tg-<id> самозаписи): файлы под ними
+# НЕ переименовываются; экспортёр kit/people_handles.py отдаёт валидатору handle И aliases.
+# Настройки self_registration и default_timezone живут в .workshop/bot.yaml, не здесь.
+#
+# Значения ниже — СИНТЕТИЧЕСКИЕ примеры (положительный контракт PII: закрытое множество
+# выдуманных значений); замените их своими.
+schema_version: 1
+people:
+  - handle: dev-one
+    name: "Пример Один (только мессенджер; админ — адресат сторожа)"
+    timezone: Europe/Belgrade
+    telegram_id: 100000001
+    status: active
+    role: admin
+    aliases: []
+  - handle: dev-two
+    name: "Пример Два (только форжа)"
+    timezone: Europe/Moscow
+    forge_login: example-two
+    status: active
+    aliases: []
+  - handle: dev-three
+    name: "Пример Три (мессенджер и форжа)"
+    timezone: Asia/Tbilisi
+    telegram_id: 100000003
+    forge_login: example-three
+    status: active
+    aliases: [tg-100000003]
+  - handle: workshop_bot
+    name: "Бот учёта времени (author конверта контейнеров, которые создаёт бот)"
+    timezone: UTC
+    kind: bot
+    status: active
+    aliases: []

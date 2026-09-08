@@ -1,0 +1,44 @@
+{
+ "expect": {
+  "outcomes": [
+   "session_opened",
+   "session_closed_recorded"
+  ],
+  "record_commits": 2
+ },
+ "note": "сессия через местную полночь на границе месяца (Belgrade 2026-09-30 23:30 → 2026-10-01 00:45): две строки в два файла (сентябрь и октябрь), два спутника, ОДИН коммит закрытия",
+ "updates": [
+  {
+   "message": {
+    "chat": {
+     "id": -1000000000001,
+     "type": "supergroup"
+    },
+    "date": 1790803800,
+    "from": {
+     "first_name": "T",
+     "id": 100000001
+    },
+    "message_id": 4020,
+    "text": "/start ночная\nхвост"
+   },
+   "update_id": 900000020
+  },
+  {
+   "message": {
+    "chat": {
+     "id": -1000000000001,
+     "type": "supergroup"
+    },
+    "date": 1790808300,
+    "from": {
+     "first_name": "T",
+     "id": 100000001
+    },
+    "message_id": 4021,
+    "text": "/stop"
+   },
+   "update_id": 900000021
+  }
+ ]
+}

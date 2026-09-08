@@ -1,0 +1,63 @@
+# workshop-bot-bootstrap — ЕДИНСТВЕННЫЙ файл комплекта, который заказчик копирует руками
+# (D09 T1 §1Д, вердикт В-3). Тонкая обёртка по структурному предикату §2: каждый шаг с run —
+# ровно один вызов скрипта комплекта, без ветвлений и литералов политики; неисполняемые ключи —
+# из allow-list'а tg-bot.yaml thin_wrapper. Проверяется bot/kit/wrapper_predicate.py.
+#
+# Куда класть: каталог workflow-файлов репозитория заказчика, имя workshop-bot-bootstrap.yml.
+# Запускается сам при появлении файла (push) и вручную (workflow_dispatch) — для обновления
+# комплекта повторный запуск показывает дифф (REQ-084).
+#
+# ПИНЫ (заполняет релиз; до заполнения предикат печатает `pins: unfilled`):
+#   actions/checkout@<полный SHA коммита action>   — два раза ниже
+#   ref: <полный SHA коммита комплекта>             — версия комплекта, которую ставим; обязан
+#        совпадать с kit.ref в kit/validator-release.yaml (шаг «check kit pin» сверяет по HEAD)
+# Учётные данные checkout репозитория заказчика (В-4): токен системного аккаунта с фолбэком на
+# штатный токен раннера ЛИБО deploy-key — оба подключены, пустой секрет checkout игнорирует;
+# в секретах задаётся ровно один из двух (install.py check-secrets).
+# Если канал выдачи комплекта окажется приватным, меняется ОДНА строка: в шаге «checkout kit»
+# добавляется `token: ${{ secrets.WORKSHOP_KIT_READ_TOKEN }}` (и имя — в реестр секретов).
+name: workshop-bot-bootstrap
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - .github/workflows/workshop-bot-bootstrap.yml
+permissions:
+  contents: write
+concurrency:
+  group: workshop-bot
+  cancel-in-progress: false
+env:
+  WORKSHOP_TG_BOT_TOKEN: ${{ secrets.WORKSHOP_TG_BOT_TOKEN }}
+  WORKSHOP_FORGE_TOKEN: ${{ secrets.WORKSHOP_FORGE_TOKEN }}
+  WORKSHOP_DEPLOY_KEY: ${{ secrets.WORKSHOP_DEPLOY_KEY }}
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout customer repo
+        uses: actions/checkout@PIN-ACTION-CHECKOUT-SHA
+        with:
+          token: ${{ secrets.WORKSHOP_FORGE_TOKEN || github.token }}
+          ssh-key: ${{ secrets.WORKSHOP_DEPLOY_KEY }}
+          fetch-depth: 0
+      - name: checkout kit (pinned)
+        uses: actions/checkout@PIN-ACTION-CHECKOUT-SHA
+        with:
+          repository: alexCherryPick/workshop-kit
+          ref: PIN-KIT-COMMIT-SHA
+          path: .workshop-kit
+      - name: check kit pin
+        run: python3 .workshop-kit/bot/kit/install.py check-kit-ref
+      - name: check secrets
+        run: python3 .workshop-kit/bot/kit/install.py check-secrets
+      - name: lay out kit (diff, then write)
+        run: python3 .workshop-kit/bot/kit/install.py layout
+      - name: fetch and verify validator binary
+        run: python3 .workshop-kit/bot/kit/install.py validator
+      - name: hooks path
+        run: git config core.hooksPath .workshop/hooks
+      - name: check people map
+        run: python3 .workshop-kit/bot/kit/install.py check-people
+      - name: commit and push kit
+        run: python3 .workshop-kit/bot/kit/install.py commit

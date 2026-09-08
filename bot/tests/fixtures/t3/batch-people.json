@@ -1,0 +1,78 @@
+{
+ "expect": {
+  "outcomes": [
+   "recorded",
+   "recorded",
+   "help_given",
+   "recorded"
+  ],
+  "record_commits": 3
+ },
+ "note": "два человека вперемешку + незнакомый (самозапись) + справка",
+ "updates": [
+  {
+   "message": {
+    "chat": {
+     "id": -1000000000001,
+     "type": "supergroup"
+    },
+    "date": 1788790990,
+    "from": {
+     "first_name": "T",
+     "id": 100000001
+    },
+    "message_id": 4030,
+    "text": "1ч альфа"
+   },
+   "update_id": 900000030
+  },
+  {
+   "message": {
+    "chat": {
+     "id": -1000000000001,
+     "type": "supergroup"
+    },
+    "date": 1788790990,
+    "from": {
+     "first_name": "T",
+     "id": 100000003
+    },
+    "message_id": 4031,
+    "text": "2ч бета"
+   },
+   "update_id": 900000031
+  },
+  {
+   "message": {
+    "chat": {
+     "id": -1000000000001,
+     "type": "supergroup"
+    },
+    "date": 1788790990,
+    "from": {
+     "first_name": "T",
+     "id": 100000001
+    },
+    "message_id": 4032,
+    "text": "/help"
+   },
+   "update_id": 900000032
+  },
+  {
+   "message": {
+    "chat": {
+     "id": -1000000000001,
+     "type": "supergroup"
+    },
+    "date": 1788790990,
+    "from": {
+     "first_name": "T",
+     "id": 100000009
+    },
+    "message_id": 4033,
+    "text": "30м гамма"
+   },
+   "update_id": 900000033
+  }
+ ]
+}

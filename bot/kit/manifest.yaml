@@ -1,0 +1,135 @@
+schema_version: 1
+kit_version: 0.1.0
+kit_schema_version: 1
+workflows_dir: .github/workflows
+entries:
+  - src: bot/anchor.py
+    dst: .workshop/bot/anchor.py
+    role: code
+    sha256: 0cd092a8e7a07c58e2b2efab6dc03f510316b8344fe6317d228f5b7d7b43c10f
+    mode: 0644
+  - src: bot/comment.py
+    dst: .workshop/bot/comment.py
+    role: code
+    sha256: 1563fb1707a89fac31f584c1570ce44ce33e0ad0a771e604e58c01f1a855e970
+    mode: 0644
+  - src: bot/commit.py
+    dst: .workshop/bot/commit.py
+    role: code
+    sha256: 13a135991bbcb5b21231782fc9b649b7860153eb3d339e51aa8749a3e3e41518
+    mode: 0644
+  - src: bot/heartbeat.py
+    dst: .workshop/bot/heartbeat.py
+    role: code
+    sha256: aa1fb79552cd7ab36451a8b05fbcb28c610b34507e3167efbc14c69167a14969
+    mode: 0644
+  - src: bot/identity.py
+    dst: .workshop/bot/identity.py
+    role: code
+    sha256: a99a1977554b056752f2fd5fcf64751a5307cc1ecb2f1d3ca6f4b4f244f89345
+    mode: 0644
+  - src: bot/kit/commands.yaml
+    dst: .workshop/bot/kit/commands.yaml
+    role: code
+    sha256: 1af483cb79ad413ce1b77150cdf9b9483a3e525341577058472a1375ab81bcfb
+    mode: 0644
+  - src: bot/kit/docs/bot-user-guide.ru.md
+    dst: .workshop/bot/kit/docs/bot-user-guide.ru.md
+    role: code
+    sha256: bfc7233d51d1dca0a2e975687db7a439ffc567a44c4dcac246f1383983444c8f
+    mode: 0644
+  - src: bot/kit/hooks/pre-commit
+    dst: .workshop/hooks/pre-commit
+    role: hook
+    sha256: fcc0aa5e0e860b40c680e3d5a9edd8c6efabfadf489f9fa18c456d8eaad136e6
+    mode: 0755
+  - src: bot/kit/people_handles.py
+    dst: .workshop/bot/kit/people_handles.py
+    role: code
+    sha256: b45602ba1f62a382c708731fc47ca4c4e870cbe41b1089631b82622599a5a553
+    mode: 0644
+  - src: bot/kit/secret-patterns.yaml
+    dst: .workshop/bot/kit/secret-patterns.yaml
+    role: code
+    sha256: bfdbf691523941421ab3c3794d8522b320aff43607b84bbc8d5e7fd009ace4f6
+    mode: 0644
+  - src: bot/kit/templates/bot-sessions.yaml
+    dst: .workshop/bot-sessions.yaml
+    role: state
+    sha256: b95f1e935058259354ae30b44858fdc1cc46aee625610cd14a98a3c23e467553
+    mode: 0644
+  - src: bot/kit/templates/bot.yaml
+    dst: .workshop/bot.yaml
+    role: config
+    sha256: 9bed3a50d389eda197aa1b4891544035de4ada9502bce9bff504d28d1be493ff
+    mode: 0644
+  - src: bot/kit/templates/gitattributes
+    dst: .gitattributes
+    role: policy
+    sha256: a17bbcbbb73a3197c617f2044a7c55e7edf40bfc7cef81b39f2ccd46d8ae3618
+    mode: 0644
+  - src: bot/kit/templates/people.yaml
+    dst: .workshop/people.yaml
+    role: manual
+    sha256: 27517d95f691cdf9368b51e22cdc85e4a89253894b08360e2708d1ffa9af5ed9
+    mode: 0644
+  - src: bot/kit/workflows/bootstrap.yml
+    dst: .github/workflows/workshop-bot-bootstrap.yml
+    role: manual
+    sha256: d6419ab7d2d6aa91fa41d2019930c9d9f79778e197f28e091b621474ad9ad4ae
+    mode: 0644
+  - src: bot/kit/workflows/heartbeat.yml
+    dst: .github/workflows/workshop-bot-heartbeat.yml
+    role: workflow
+    sha256: b8198277ee41fe7f7f2bd3215df52e63214695e911f227c2d20c024b38cec6c0
+    mode: 0644
+  - src: bot/kit/workflows/poller.yml
+    dst: .github/workflows/workshop-bot-poller.yml
+    role: workflow
+    sha256: 9ca96a5f18fd7c11ab68f2ce07db27eb4c468743316a3abb378a3d5728690ea8
+    mode: 0644
+  - src: bot/lastn.py
+    dst: .workshop/bot/lastn.py
+    role: code
+    sha256: 3834ab71e3552cb148445c1d15f947aa313f5f12c3afa3e900986f1fe3cdbec6
+    mode: 0644
+  - src: bot/line.py
+    dst: .workshop/bot/line.py
+    role: code
+    sha256: 1a3bef74854dc6baa0e5c13d520fa3879536bd16be12ad0619c2a97e7f8230a3
+    mode: 0644
+  - src: bot/parse.py
+    dst: .workshop/bot/parse.py
+    role: code
+    sha256: a28b0c24e0659a43c00552422bf1d24a25b35cf1a8f230dc3b85236cf5555456
+    mode: 0644
+  - src: bot/poll.py
+    dst: .workshop/bot/poll.py
+    role: code
+    sha256: 58485002ff33509870d38ce6ce971c4725648e2d9e7daed7aa83eb06976c123f
+    mode: 0644
+  - src: bot/secrets.py
+    dst: .workshop/bot/secrets.py
+    role: code
+    sha256: e100e9611074421b030d2dc96dcebf4bd5734b7fd7c2b483e0d14e1a88f5e197
+    mode: 0644
+  - src: bot/session.py
+    dst: .workshop/bot/session.py
+    role: code
+    sha256: 6f5755225868c8b41dbc0f84b86ea167d706d74dfa4b53ddc40589f60c7c7fa2
+    mode: 0644
+  - src: bot/state_store.py
+    dst: .workshop/bot/state_store.py
+    role: code
+    sha256: 4334125afc7b57177f9dac634801c61a7154c93cdf11c7b763eedca5f3dfe1b4
+    mode: 0644
+  - src: bot/tg.py
+    dst: .workshop/bot/tg.py
+    role: code
+    sha256: 1e447c96fad56dc41c797f60f40134202bdd6a069e5c286b43e4d80faeefc2b4
+    mode: 0644
+  - src: bot/yamlmini.py
+    dst: .workshop/bot/yamlmini.py
+    role: code
+    sha256: 72ba37a2d4d035f733fae3e734742374000b8160ce63c49d6d2a35cb6d649c28
+    mode: 0644

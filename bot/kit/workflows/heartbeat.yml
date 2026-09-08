@@ -1,0 +1,32 @@
+# workshop-bot-heartbeat — обёртка сторожа (dead-man alarm, D09 T5). Ставится КОМПЛЕКТОМ (роль
+# workflow, .github/workflows/workshop-bot-heartbeat.yml). Тонкая по структурному предикату §2.
+# ОДНА concurrency-группа с поллером и bootstrap (workshop-bot): два читателя курсора getUpdates
+# невозможны по построению — сторож читает getUpdates(offset, timeout=0) БЕЗ подтверждения, но и
+# он, и поллер сериализованы группой. Расписание реже поллера: сторож смотрит на возраст, не на
+# каждое сообщение; порог молчания (часы) от частоты крона не зависит.
+name: workshop-bot-heartbeat
+on:
+  schedule:
+    - cron: "17 */2 * * *"
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: workshop-bot
+  cancel-in-progress: false
+env:
+  WORKSHOP_TG_BOT_TOKEN: ${{ secrets.WORKSHOP_TG_BOT_TOKEN }}
+  WORKSHOP_FORGE_TOKEN: ${{ secrets.WORKSHOP_FORGE_TOKEN }}
+  WORKSHOP_DEPLOY_KEY: ${{ secrets.WORKSHOP_DEPLOY_KEY }}
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout customer repo
+        uses: actions/checkout@PIN-ACTION-CHECKOUT-SHA
+        with:
+          token: ${{ secrets.WORKSHOP_FORGE_TOKEN || github.token }}
+          ssh-key: ${{ secrets.WORKSHOP_DEPLOY_KEY }}
+          fetch-depth: 0
+      - name: heartbeat
+        run: python3 .workshop/bot/heartbeat.py

@@ -1,0 +1,158 @@
+# ЗАКРЫТЫЙ РЕЕСТР КОМАНД БОТА — единственный источник (D09 T1, глава §1А; REQ-067, REQ-091).
+# Читают трое, копии не держит никто: парсер (T2, каждый прогон), генератор /help и блока
+# инструкции (kit/build_help.py), гейт полноты справки (T6). Добавление команды = правка ЭТОГО
+# файла + перегенерация, и никогда правка кода парсера.
+# Ровно восемь позиций; «прочее» запрещено — всё, что не разбирается ни одной позицией, есть
+# исход reask_unparsed (§1, исход 4), а update, не являющийся входом вовсе, — non_input (исход 9).
+schema_version: 1
+registry: commands
+
+# Префикс подтверждения (П-2): повторная присылка после находки секрета — НОВОЕ сообщение с этим
+# префиксом; проходит тот же цикл, гейт секретов для него объявлен пройденным один раз.
+# Префикс — КОМАНДА мессенджера (slash), а не голый маркер: в группе с privacy-mode он доходит
+# до бота и попадает в список команд бота у BotFather (§1А; вердикт судьи T1, правка 2).
+confirm_prefix: "/confirm"
+
+# Таблица нормализации входа. Применяется ТОЛЬКО к командной строке при разборе (T2);
+# к байтам, идущим в тело коммента, НЕ применяется (§7: тело — полные байты сообщения).
+normalization:
+  - id: strip_bot_mention
+    rule: "суффикс `@<имя бота>` у командного токена отбрасывается: `/start@bot` читается как `/start`, `/confirm@bot` — как `/confirm` (префикс подтверждения — такой же командный токен)"
+  - id: command_token_case
+    rule: "командный токен сравнивается без учёта регистра латиницы; аргументы регистр сохраняют"
+  - id: first_line_is_title
+    rule: "заголовок — ПЕРВАЯ строка текста до первого LF, без аргументов команды; хвост — байты после первого LF"
+  - id: whitespace_between_tokens
+    rule: "между командным токеном и аргументами — один или более пробелов; внутри заголовка пробелы сохраняются дословно"
+  - id: duration_units
+    rule: "длительность: `ЧЧ:ММ`, `Nч`, `Nм`, `Nh`, `Nm`, их сочетания через пробел; в целые секунды, затем Н1 (T2 §грамматика)"
+  - id: interval_form
+    rule: "интервал `<от>-<до>`: `ЧЧ:ММ-ЧЧ:ММ` местного времени человека (timezone карты людей) за «сегодня» по message.date; дата — правило умолчания T2"
+
+commands:
+  - id: start_title
+    name: "/start <заголовок>"
+    token: "/start"
+    synopsis: "<заголовок>[LF<хвост>]"
+    grammar: "01-message-to-line.md#grammar-start-title"
+    example: "/start созвон с подрядчиком по стенду"
+    time_bearing: true
+    callback_allowed: false
+    tail_rule: after_first_line
+    outcomes: [session_opened, reask_start_already_open, reask_unparsed, rejected_unknown_sender, rejected_secret, identical_repeat, conflict_p1_unmet, retries_exhausted]
+    help_text: "открыть учёт: время начала — момент этого сообщения"
+    guide_text: |
+      Открывает учёт с заголовком — текстом будущей дневной строки. Время начала берётся из
+      времени вашего сообщения, а не из момента, когда бот его прочитал: задержка бота часы
+      не искажает. Если учёт уже открыт, бот не откроет второй, а напомнит, какой открыт и
+      когда начат. Всё, что вы напишете со второй строки сообщения, попадёт в коммент к строке
+      дословно.
+  - id: start_n
+    name: "/start <N>"
+    token: "/start"
+    synopsis: "<N> — номер заголовка из последнего ответа на /last"
+    grammar: "01-message-to-line.md#grammar-start-n"
+    example: "/start 2"
+    time_bearing: true
+    callback_allowed: false
+    tail_rule: after_first_line
+    outcomes: [session_opened, reask_start_already_open, reask_unparsed, rejected_unknown_sender, rejected_secret, identical_repeat, conflict_p1_unmet, retries_exhausted]
+    help_text: "открыть учёт, повторив заголовок номер N из списка последних"
+    guide_text: |
+      Открывает учёт, повторив заголовок под номером N из вашего последнего списка заголовков.
+      Ответ бота называет выбранный заголовок дословно — так промах номера виден сразу. Номер
+      вне списка — переспрос, ничего не открывается. Кнопка под списком лишь подставляет эту
+      команду в поле ввода: отправить её нужно вам, потому что время начала берётся из вашего
+      сообщения.
+  - id: stop
+    name: "/stop"
+    token: "/stop"
+    synopsis: "[<хвост>]"
+    grammar: "01-message-to-line.md#grammar-stop"
+    example: "/stop"
+    time_bearing: true
+    callback_allowed: false
+    tail_rule: after_token
+    outcomes: [session_closed_recorded, reask_stop_without_open, reask_invalid, rejected_unknown_sender, rejected_secret, identical_repeat, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure]
+    help_text: "закрыть учёт и записать дневную строку (часы и интервал — от начала до этого сообщения)"
+    guide_text: |
+      Закрывает открытый учёт: бот записывает дневную строку с часами и интервалом от вашего
+      сообщения открытия до этого сообщения. Если сессия перешла вашу местную полночь, строк
+      будет две — по одной на каждую дату. Без открытого учёта команда ничего не пишет, а
+      переспрашивает. Текст после команды попадает в коммент к строке дословно.
+  - id: track
+    name: "/track <от>-<до> <заголовок>"
+    token: "/track"
+    synopsis: "<ЧЧ:ММ>-<ЧЧ:ММ> <заголовок>[LF<хвост>]"
+    grammar: "01-message-to-line.md#grammar-track"
+    example: "/track 10:15-12:00 ревью макетов"
+    time_bearing: true
+    callback_allowed: false
+    tail_rule: after_first_line
+    outcomes: [recorded, recorded_with_warning, identical_repeat, reask_unparsed, reask_invalid, reask_correction, rejected_unknown_sender, rejected_secret, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure]
+    help_text: "записать интервал задним числом за сегодня"
+    guide_text: |
+      Записывает интервал задним числом: от и до — местное время вашего часового пояса из
+      карты людей, дата — сегодняшняя по времени сообщения. Часы считаются из интервала по
+      правилу округления спеки времени и приходят в подтверждении уже нормализованными.
+  - id: free_text
+    name: "<длительность> <заголовок>"
+    token: ""
+    synopsis: "<длительность> <заголовок>[LF<хвост>] — например «2ч 40м созвон»"
+    grammar: "01-message-to-line.md#grammar-free-text"
+    example: "2ч 40м созвон по релизу"
+    time_bearing: true
+    callback_allowed: false
+    tail_rule: after_first_line
+    outcomes: [recorded, recorded_with_warning, identical_repeat, reask_unparsed, reask_invalid, reask_correction, rejected_unknown_sender, rejected_secret, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure]
+    help_text: "свободная строка: длительность и заголовок — запись за сегодня без интервала"
+    guide_text: |
+      Свободное сообщение без команды: сначала длительность («2ч 40м», «1:20», «45м»), потом
+      заголовок. Записывается за сегодня по времени сообщения, без интервала. Сообщение,
+      которое бот не смог прочитать как длительность и заголовок, ничего не записывает — бот
+      переспросит и приложит краткую справку.
+  - id: last
+    name: "/last [N]"
+    token: "/last"
+    synopsis: "[<N>] — сколько последних заголовков показать"
+    grammar: "01-message-to-line.md#grammar-last"
+    example: "/last 5"
+    time_bearing: false
+    callback_allowed: true
+    tail_rule: none
+    outcomes: [last_list_given, reask_unparsed, rejected_unknown_sender]
+    help_text: "показать последние заголовки с номерами (для повтора через /start N)"
+    guide_text: |
+      Показывает ваши последние заголовки с номерами и кнопками. Список читается из ваших
+      собственных файлов времени в репозитории. В групповом чате ответ уходит только вам и
+      не показывает чужих строк. Ничего не записывает.
+  - id: help
+    name: "/help"
+    token: "/help"
+    synopsis: ""
+    grammar: "01-message-to-line.md#grammar-help"
+    example: "/help"
+    time_bearing: false
+    callback_allowed: true
+    tail_rule: none
+    outcomes: [help_given]
+    help_text: "эта справка"
+    guide_text: |
+      Краткая справка со всеми командами и примерами ввода времени. Та же справка приходит
+      в ответ на любое сообщение, которое бот не понял.
+  - id: confirm
+    name: "/confirm <исходное сообщение>"
+    token: "/confirm"
+    synopsis: "<исходное сообщение целиком, после префикса подтверждения>"
+    grammar: "01-message-to-line.md#grammar-confirm"
+    example: "/confirm 1ч правка конфига со строкой, похожей на ключ"
+    time_bearing: true
+    callback_allowed: false
+    tail_rule: as_wrapped
+    outcomes: [recorded, recorded_with_warning, identical_repeat, reask_unparsed, reask_invalid, reask_correction, rejected_unknown_sender, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure, session_opened, session_closed_recorded, reask_start_already_open, reask_stop_without_open]
+    help_text: "подтвердить запись, в которой бот увидел похожее на секрет: пришлите то же сообщение с этим префиксом"
+    guide_text: |
+      Если бот увидел в сообщении что-то похожее на секрет (ключ, токен, пароль), он ничего не
+      запишет и назовёт находку. Если это не секрет, отправьте то же сообщение ещё раз с
+      префиксом подтверждения впереди — оно пройдёт тот же путь, и запись состоится. Новое
+      сообщение — новое время: для открытия и закрытия учёта это важно.

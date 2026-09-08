@@ -1,0 +1,9 @@
+# Манифест пиннованных фикстур батчей T3 (путь, sha256) — режим СВЕРКИ в selfcheck_t3.sh (правило §2: пиннинг — манифест, не печать дайджеста).
+# Пересборка: python3 bot/tests/fixtures/t3/rebuild_manifest.py (после осознанной правки фикстуры).
+schema_version: 1
+entries:
+  - {path: batch-callback.json, sha256: 88f9bc5949d161d23a3fb2185c77d9b7558ac10ee83834a621dff7cadeba3a89}
+  - {path: batch-free-text.json, sha256: 14928ee247508d6ed5deae12d8afdc4a9ba3b9b5f5683237f76ea3decf6f908e}
+  - {path: batch-people.json, sha256: 60584d14a3fd0a123c43f7af1e3c43260b69b98e4a5ea4d7030e5917d0bcce79}
+  - {path: batch-start-stop-midnight-month.json, sha256: 3ae8431dfe31409e0967c615f02da94ee1c83249b60fb7f119bb7ddefb3377d2}
+  - {path: batch-start-stop.json, sha256: 9247eda77cb344b9ffa478be0dd56497fae2c999a3e9a2a9ac59c38c1f343a6b}

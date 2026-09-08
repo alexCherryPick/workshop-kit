@@ -1,0 +1,44 @@
+{
+ "expect": {
+  "outcomes": [
+   "session_opened",
+   "session_closed_recorded"
+  ],
+  "record_commits": 2
+ },
+ "note": "таймер в одном батче: открытие и закрытие по порядку update_id",
+ "updates": [
+  {
+   "message": {
+    "chat": {
+     "id": -1000000000001,
+     "type": "supergroup"
+    },
+    "date": 1788790990,
+    "from": {
+     "first_name": "T",
+     "id": 100000001
+    },
+    "message_id": 4010,
+    "text": "/start ремонт стенда\nхвост открытия"
+   },
+   "update_id": 900000010
+  },
+  {
+   "message": {
+    "chat": {
+     "id": -1000000000001,
+     "type": "supergroup"
+    },
+    "date": 1788796390,
+    "from": {
+     "first_name": "T",
+     "id": 100000001
+    },
+    "message_id": 4011,
+    "text": "/stop\nхвост закрытия"
+   },
+   "update_id": 900000011
+  }
+ ]
+}

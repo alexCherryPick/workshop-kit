@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""pre-commit — рубеж РЕПОЗИТОРИЯ (ядро 05.3.2 п. 3): скан добавленных строк индекса по реестру
+паттернов комплекта. Владелец — T4; ставится в .workshop/hooks/pre-commit (роль hook), активируется
+`git config core.hooksPath .workshop/hooks` в эфемерном клоне CI (шаг обёртки, allow-list §2).
+Находка → имена паттернов (значений не печатает), rc=1, коммита нет. Обход — ТОЛЬКО явное
+подтверждение: переменная WORKSHOP_SECRET_CONFIRMED=1, которую поллер выставляет для коммита
+ПОДТВЕРЖДЁННОГО текста (П-2); руками — осознанный риск владельца, печатается предупреждение.
+Python 3.9 stdlib; читает yamlmini и реестр из .workshop/bot/ того же репозитория."""
+import os
+import subprocess
+import sys
+
+
+def added_lines(diff):
+    """Добавленные строки индекса из unified diff -U0: содержимое считается только ВНУТРИ ханка
+    (после строки `@@`), заголовки `+++ ` вне ханков не путаются со строкой содержимого `++…`."""
+    out, in_hunk = [], False
+    for l in diff.split(b"\n"):
+        if l.startswith(b"diff --git "):
+            in_hunk = False
+        elif l.startswith(b"@@"):
+            in_hunk = True
+        elif in_hunk and l.startswith(b"+"):
+            out.append(l[1:])
+    return b"\n".join(out)
+
+
+def main():
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL).stdout.decode().strip()
+    if not top:
+        return 0
+    kit = os.path.join(top, ".workshop", "bot")
+    # комплект — ТОЛЬКО из этого репозитория (не из PYTHONPATH окружения): hooksPath выставлен — владелец ЯВНО хотел
+    # рубеж; сканировать нечем = собственная ошибка инструмента, не «пропустить»
+    if not all(os.path.exists(os.path.join(kit, f)) for f in ("yamlmini.py", "secrets.py")):
+        sys.stderr.write("pre-commit: hooksPath указывает на рубеж, а комплекта бота в .workshop/bot нет — коммит отклонён (положите комплект или снимите core.hooksPath)\n")
+        return 1
+    sys.path.insert(0, kit)
+    import yamlmini  # noqa: E402
+    import secrets as secrets_mod  # noqa: E402
+    reg_path = os.path.join(top, ".workshop", "bot", "kit", "secret-patterns.yaml")
+    if not os.path.exists(reg_path):
+        sys.stderr.write("pre-commit: нет реестра паттернов %s — коммит отклонён\n" % reg_path)
+        return 1
+    registry = secrets_mod.load_patterns(yamlmini.load_file(reg_path))
+    # --no-renames: переименованный/скопированный файл диффится как удаление+добавление — его строки в скане; фильтра по статусу нет
+    diff = subprocess.run(["git", "diff", "--cached", "-U0", "--no-color", "--no-renames", "--no-ext-diff"], stdout=subprocess.PIPE).stdout
+    findings = secrets_mod.scan(registry, added_lines(diff))
+    if not findings:
+        return 0
+    names = sorted(f["name"] for f in findings)
+    # обход — только ЯВНОЕ подтверждение, привязанное к ИМЕНАМ находок подтверждённого текста (П-2):
+    # WORKSHOP_SECRET_CONFIRMED=<имя[,имя…]>; находка вне перечня блокирует коммит
+    allowed = set(x.strip() for x in os.environ.get("WORKSHOP_SECRET_CONFIRMED", "").split(",") if x.strip())
+    if allowed and set(names) <= allowed:
+        sys.stderr.write("pre-commit: находки подтверждены явно (%s) — коммит разрешён\n" % ", ".join(names))
+        return 0
+    extra = sorted(set(names) - allowed)
+    sys.stderr.write("pre-commit: в индексе похожее на секрет: %s — коммит отклонён; значения не печатаются. Подтверждение — WORKSHOP_SECRET_CONFIRMED=<имена находок через запятую> (осознанный риск)\n" % ", ".join(extra))
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

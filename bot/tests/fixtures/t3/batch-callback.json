@@ -1,0 +1,65 @@
+{
+ "expect": {
+  "outcomes": [
+   "recorded",
+   "help_given",
+   "reask_unparsed"
+  ],
+  "record_commits": 1
+ },
+ "note": "нажатия кнопок: справка (callback_allowed) и позиция с time_bearing",
+ "updates": [
+  {
+   "message": {
+    "chat": {
+     "id": -1000000000001,
+     "type": "supergroup"
+    },
+    "date": 1788790990,
+    "from": {
+     "first_name": "T",
+     "id": 100000001
+    },
+    "message_id": 4040,
+    "text": "2ч дельта"
+   },
+   "update_id": 900000040
+  },
+  {
+   "callback_query": {
+    "data": "/help",
+    "from": {
+     "first_name": "T",
+     "id": 100000001
+    },
+    "id": "cq900000041",
+    "message": {
+     "chat": {
+      "id": -1000000000001,
+      "type": "supergroup"
+     },
+     "message_id": 3041
+    }
+   },
+   "update_id": 900000041
+  },
+  {
+   "callback_query": {
+    "data": "/start 1",
+    "from": {
+     "first_name": "T",
+     "id": 100000001
+    },
+    "id": "cq900000042",
+    "message": {
+     "chat": {
+      "id": -1000000000001,
+      "type": "supergroup"
+     },
+     "message_id": 3042
+    }
+   },
+   "update_id": 900000042
+  }
+ ]
+}
