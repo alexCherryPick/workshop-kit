@@ -130,8 +130,10 @@ def cmd_check_kit_ref(args):
         # R — отказ: код обязан быть тем самым K, который назван манифестом.
         parent = _git(kit_root, "rev-parse", "HEAD^")
         if parent.returncode != 0:
-            shallow = os.path.exists(os.path.join(kit_root, ".git", "shallow")) or _git(kit_root, "rev-parse", "--is-shallow-repository").stdout.strip() == "true"
-            raise Refuse("пин комплекта: HEAD checkout'а %s без родителя%s — релизный слой над kit.ref %s не проверить; checkout комплекта обязан быть глубиной 2 (fetch-depth: 2 в обёртке)" % (actual[:12], " (МЕЛКИЙ клон)" if shallow else "", expected[:12]))
+            shallow = _git(kit_root, "rev-parse", "--is-shallow-repository").stdout.strip() == "true"
+            if shallow:
+                raise Refuse("пин комплекта: HEAD checkout'а %s без родителя (МЕЛКИЙ клон) — релизный слой над kit.ref %s не проверить; checkout комплекта обязан быть глубиной 2 (fetch-depth: 2 в обёртке)" % (actual[:12], expected[:12]))
+            raise Refuse("пин комплекта расходится: HEAD checkout'а %s (корневой коммит), манифест релиза kit.ref %s" % (actual, expected))
         if parent.stdout.strip() != expected:
             raise Refuse("пин комплекта расходится: HEAD checkout'а %s, манифест релиза kit.ref %s (и HEAD не релизный слой над ним)" % (actual, expected))
         changed = _git(kit_root, "diff", "--name-only", expected, actual).stdout.split()
@@ -439,7 +441,11 @@ def cmd_commit(args):
         return
     r = _git(repo, "push", "-q", "origin", "HEAD")
     if r.returncode != 0:
-        raise Refuse("git push: %s" % r.stderr.strip())
+        err = r.stderr.strip()
+        hint = ""
+        if "workflow" in err and ("scope" in err or "Personal Access Token" in err):
+            hint = " — ПРИЧИНА: у токена CI нет права на workflow-файлы (комплект кладёт обёртки в .github/workflows/): классический токен нужен со scope repo И workflow, fine-grained — Contents: write И Workflows: write (шаг forge_credential_secret инструкции)"
+        raise Refuse("git push: %s%s" % (err[:400], hint))
     _say("push: выполнен")
 
 

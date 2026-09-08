@@ -321,11 +321,13 @@ class KitRefTests(unittest.TestCase):
         git(self.checkout, "add", "-A"); git(self.checkout, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-qm", "release layer")
         R = git(self.checkout, "rev-parse", "HEAD").stdout.strip()
         shallow = tempfile.mkdtemp(prefix="shallow-")
-        run(["git", "clone", "-q", "--depth", "1", "file://" + self.checkout, shallow])
+        import subprocess as _sp
+        self.assertEqual(_sp.run(["git", "clone", "-q", "--depth", "1", "file://" + self.checkout, shallow], stdin=_sp.DEVNULL, stdout=_sp.PIPE, stderr=_sp.PIPE).returncode, 0)
         rc, out = run([os.path.join(self.k.kit, "install.py"), "--kit", self.k.kit, "check-kit-ref", "--release", self._release(K), "--kit-checkout", shallow])
         self.assertEqual(rc, 2); self.assertIn("МЕЛКИЙ клон", out); self.assertIn("fetch-depth: 2", out)
         deep = tempfile.mkdtemp(prefix="deep-")
-        run(["git", "clone", "-q", "--depth", "2", "file://" + self.checkout, deep])
+        self.assertEqual(_sp.run(["git", "clone", "-q", "--depth", "2", "file://" + self.checkout, deep], stdin=_sp.DEVNULL, stdout=_sp.PIPE, stderr=_sp.PIPE).returncode, 0)
+        git(deep, "remote", "set-url", "origin", "git@example.invalid:alexCherryPick/workshop-kit.git")   # как у checkout'а из канала
         rc, out = run([os.path.join(self.k.kit, "install.py"), "--kit", self.k.kit, "check-kit-ref", "--release", self._release(K), "--kit-checkout", deep])
         self.assertEqual(rc, 0, out); self.assertIn("релизный слой", out)
         shutil.rmtree(shallow, ignore_errors=True); shutil.rmtree(deep, ignore_errors=True)

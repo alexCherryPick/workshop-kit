@@ -36,7 +36,7 @@ entries:
   - src: bot/kit/docs/bot-user-guide.ru.md
     dst: .workshop/bot/kit/docs/bot-user-guide.ru.md
     role: code
-    sha256: bfc7233d51d1dca0a2e975687db7a439ffc567a44c4dcac246f1383983444c8f
+    sha256: eade7efa4a8b1ff9ce408045758c66d7082c67337931d9817f8427f0d8ac5ee6
     mode: 0644
   - src: bot/kit/hooks/pre-commit
     dst: .workshop/hooks/pre-commit
