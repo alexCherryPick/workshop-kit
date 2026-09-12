@@ -463,7 +463,14 @@ class ManifestAndExportTests(unittest.TestCase):
         self.assertIn("dst: .github/workflows/workshop-bot-bootstrap.yml\n    role: manual", out1)
         self.assertNotIn("role: data", out1)
         self.assertNotIn("bot/tests/", out1)
-        self.assertNotIn("src: bot/kit/install.py", out1)
+        # РАНТАЙМ комплекта у заказчика: install.py и его реестры ставятся (обёртки поллера и сторожа
+        # зовут `install.py validator` каждый прогон) — живой прогон 2026-09-12
+        self.assertIn("dst: .workshop/bot/kit/install.py\n    role: code", out1)
+        self.assertIn("dst: .workshop/bot/kit/install-steps.yaml\n    role: code", out1)
+        self.assertIn("dst: .workshop/bot/kit/validator-release.yaml\n    role: code", out1)
+        # инструменты СБОРКИ у заказчика не нужны и не ставятся
+        for tool in ("build_manifest.py", "build_help.py", "wrapper_predicate.py"):
+            self.assertNotIn("src: bot/kit/%s" % tool, out1)
         self.assertTrue(out1.endswith("\n") and not out1.endswith("\n\n"))
 
     def test_people_handles_exports_handles_and_aliases(self):

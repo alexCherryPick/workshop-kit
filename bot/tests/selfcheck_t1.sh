@@ -283,6 +283,33 @@ env = set(bs["env"].keys()); print("  env-ключей: %d, секретов в 
 sys.exit(0 if env <= secrets and bs["concurrency"]["group"] == tw["thin_wrapper"]["concurrency_group"] else 1)
 EOF
 
+echo "== 9б. рантайм обёрток: каждый скрипт из run обёрток комплекта присутствует в назначениях манифеста"
+$PY - <<'EOF2' && ok "скрипты, которые зовут обёртки, комплект кладёт (иначе прогон падает «can't open file»)" || bad "обёртка зовёт скрипт, которого комплект не ставит"
+# -*- coding: utf-8 -*-
+import glob, re, sys
+sys.path.insert(0, "bot")
+import yamlmini
+dsts = {e["dst"] for e in yamlmini.load_file("bot/kit/manifest.yaml")["entries"]}
+bad = []
+for w in sorted(glob.glob("bot/kit/workflows/*.yml")):
+    doc = yamlmini.load_file(w)
+    for job in (doc.get("jobs") or {}).values():
+        for st in job.get("steps") or []:
+            run = st.get("run")
+            if not run:
+                continue
+            m = re.match(r"^python3 (\S+\.py)", run)
+            if not m:
+                continue
+            path = m.group(1)
+            if path.startswith(".workshop-kit/"):
+                continue
+            if path not in dsts:
+                bad.append("%s: %s" % (w.split("/")[-1], path))
+print("  вызовов скриптов в обёртках проверено; отсутствующих в манифесте: %d %s" % (len(bad), bad))
+sys.exit(1 if bad else 0)
+EOF2
+
 echo "== 10. ручные шаги: N из реестра, блок инструкции, чувствительность"
 N_DECL=$($PY bot/kit/build_help.py count-steps)
 N_GUIDE=$(sed -n '/generated:steps:start/,/generated:steps:end/p' "$G" | grep -cE '^[0-9]+\. \*\*')

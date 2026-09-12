@@ -49,8 +49,13 @@ def _layout(rel):
     if len(parts) == 2:
         if name in ("commands.yaml", "secret-patterns.yaml", "people_handles.py"):
             return ("code", ".workshop/bot/kit/" + name, "0644")
-        return None  # install.py, build_*.py, wrapper_predicate.py, install-steps.yaml,
-                     # validator-release.yaml, manifest.yaml — инструменты комплекта, в репо не ставятся
+        if name in ("install.py", "install-steps.yaml", "validator-release.yaml"):
+            # РАНТАЙМ комплекта у заказчика: обёртки поллера и сторожа зовут `install.py validator`
+            # каждый прогон (бинарь валидатора в коммит не попадает — каталог самоигнорируемый),
+            # а install.py читает реестр шагов и манифест релиза. Без них прогон падает
+            # «can't open file .workshop/bot/kit/install.py» (живой прогон 2026-09-12).
+            return ("code", ".workshop/bot/kit/" + name, "0644" if name != "install.py" else "0755")
+        return None  # build_*.py, wrapper_predicate.py, manifest.yaml — инструменты сборки, в репо не ставятся
     sub = parts[1]
     if sub == "docs":
         return ("code", ".workshop/bot/kit/docs/" + name, "0644")
