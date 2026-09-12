@@ -14,7 +14,7 @@
 schema_version: 1
 kit:
   repository: alexCherryPick/workshop-kit
-  ref: c200c4920c13310ad0b30a6378e8a901b5335428
+  ref: 9b37a10eda550622f057a841d501d6c19422d189
   channel: public
   note: "канал выдачи — ОТДЕЛЬНЫЙ публичный репозиторий комплекта workshop-kit (вердикт alex 2в, 2026-09-08): зеркало bot/ из закрытого монорепо + релизы валидатора; kit.ref — SHA коммита ЗЕРКАЛА; клиентская копия bootstrap.yml с пинами — ассет релиза (витрина сайта)"
 pinned_version: "0.1.0"
