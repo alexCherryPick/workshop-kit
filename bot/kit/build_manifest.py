@@ -58,6 +58,11 @@ def _layout(rel):
             return ("code", ".workshop/bot/kit/" + name, "0644" if name != "install.py" else "0755")
         return None  # build_manifest.py, wrapper_predicate.py, manifest.yaml — инструменты СБОРКИ, в репо не ставятся
     sub = parts[1]
+    if sub == "daemon":
+        # обёртка-демон (Dockerfile, entrypoint, compose-фрагмент, пример env) — вторая форма запуска
+        # поллера на машине ЗАКАЗЧИКА; кладётся в его инфраструктурный репозиторий (compose), а не в
+        # репозиторий трекера, поэтому в раскладку install.py не входит — выдаётся ассетами релиза
+        return None
     if sub == "docs":
         return ("code", ".workshop/bot/kit/docs/" + name, "0644")
     if sub == "hooks":

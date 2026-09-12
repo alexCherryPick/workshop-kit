@@ -11,7 +11,7 @@ entries:
   - src: bot/comment.py
     dst: .workshop/bot/comment.py
     role: code
-    sha256: 1563fb1707a89fac31f584c1570ce44ce33e0ad0a771e604e58c01f1a855e970
+    sha256: af31122d6e7a0d21499e30c3eedcf17009e7e2a5f53d759fc07395308303da2c
     mode: 0644
   - src: bot/commit.py
     dst: .workshop/bot/commit.py
@@ -41,7 +41,7 @@ entries:
   - src: bot/kit/docs/bot-user-guide.ru.md
     dst: .workshop/bot/kit/docs/bot-user-guide.ru.md
     role: code
-    sha256: 366ad752fcc2b68f10dc90b62ef10d54a5136971a0386e15cbbc58b172ba8dc6
+    sha256: 6af68c58b9dc2697e8e613a1d2fd1f2ea84658fa0aee3cf5600b47ebffb84d88
     mode: 0644
   - src: bot/kit/hooks/pre-commit
     dst: .workshop/hooks/pre-commit
@@ -96,17 +96,17 @@ entries:
   - src: bot/kit/workflows/bootstrap.yml
     dst: .github/workflows/workshop-bot-bootstrap.yml
     role: manual
-    sha256: dac326d78ae8892eb1e98726fc2400002eb68aa41785efe2cf8f8a21643aafa1
+    sha256: bf5d2ad4b691ad4a90d515016f32c91e188df72f4f44960dcca27c8e93fea9f5
     mode: 0644
   - src: bot/kit/workflows/heartbeat.yml
     dst: .github/workflows/workshop-bot-heartbeat.yml
     role: workflow
-    sha256: 1a91b8993be33d02cad70d7248903ef2e79e9b4d018b4e134da42dec2c6536ca
+    sha256: b8198277ee41fe7f7f2bd3215df52e63214695e911f227c2d20c024b38cec6c0
     mode: 0644
   - src: bot/kit/workflows/poller.yml
     dst: .github/workflows/workshop-bot-poller.yml
     role: workflow
-    sha256: d77702f915dd665b0131e1ec400ecbdbe8ab480e1e0d1aa23c9c1338ef50fc87
+    sha256: 9ca96a5f18fd7c11ab68f2ce07db27eb4c468743316a3abb378a3d5728690ea8
     mode: 0644
   - src: bot/lastn.py
     dst: .workshop/bot/lastn.py
@@ -126,7 +126,7 @@ entries:
   - src: bot/poll.py
     dst: .workshop/bot/poll.py
     role: code
-    sha256: dfd8588ab02247a54086d836b680611d4864daee3298745848a8d76dae442b39
+    sha256: 73bc908f1af3e687e0f900e1483fd77f793d7e3f188cc2e1f7b21dfb8786f657
     mode: 0644
   - src: bot/secrets.py
     dst: .workshop/bot/secrets.py

@@ -1,0 +1,26 @@
+# workshop-bot — сервис демона поллера для docker-compose заказчика (кладётся рядом с его сервисами;
+# вторая форма запуска, D09 §1Д). Каталог workshop-bot-daemon/ — Dockerfile и entrypoint.sh из
+# ассетов релиза комплекта; .env.workshop — два секрета, файл с правами 600, в git не попадает.
+# Числа ниже — настройки ЗАКАЗЧИКА (пауза цикла, период сторожа), политики бота живут в
+# .workshop/bot.yaml его репозитория (там же transport.long_poll_seconds — для демона ставьте 20–30).
+services:
+  workshop-bot:
+    build: ./workshop-bot-daemon
+    container_name: workshop-bot
+    restart: always
+    env_file: .env.workshop
+    environment:
+      WORKSHOP_REPO_URL: https://github.com/<org>/<repo>.git
+      WORKSHOP_REPO_BRANCH: main
+      WORKSHOP_DAEMON_PAUSE_SECONDS: "2"
+      WORKSHOP_DAEMON_HEARTBEAT_EVERY_SECONDS: "7200"
+    volumes:
+      - workshop_repo:/repo
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  workshop_repo:

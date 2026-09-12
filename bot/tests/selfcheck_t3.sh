@@ -239,6 +239,38 @@ echo "  20 force-push: $(grep -rnE 'push[^|]*(--force|--force-with-lease|(^| )-f
 [ "$(grep -rnE 'push[^|]*(--force|--force-with-lease|(^| )-f( |$)|\+refs/)' bot/*.py bot/kit/workflows/ harness/bot_p1_refuse.sh | wc -l | tr -d ' ')" = "0" ] && ok "20 force-push в коде/обёртках/harness отсутствует" || bad "20 force-push найден"
 grep -n 'def dumps' bot/yamlmini.py > /dev/null || echo "  (проверка сигнатуры dumps для мутанта 7)"
 
+echo "== 2б. валидатор на СОБСТВЕННОЙ записи бота: check-file созданного поллером контейнера чист"
+$PY - <<'PY' && ok "контейнер, созданный ботом, проходит check-file без предупреждений (id — UUIDv7)" || bad "валидатор помечает собственную запись бота"
+# -*- coding: utf-8 -*-
+import os, re, subprocess, sys
+sys.path.insert(0, "bot/tests"); sys.path.insert(0, "bot")
+import botrepo, yamlmini, poll
+from botrepo import Stand, FakeTransport, msg
+s = Stand(); cfg = yamlmini.load_file(os.path.join(s.root, ".workshop", "bot.yaml")); bad = 0
+try:
+    poll.run_once(poll.Ctx(s.root, FakeTransport([msg("2ч 40м проба\nхвост", date=1788790990)]), cfg, botrepo.VALIDATOR, bot_username="x", sleeper=lambda x: None))
+    rel = "time/TIMESHEET-2026-09-dev-one.md"
+    cid = re.search(rb"^id: (\S+)$", s.read(rel), re.M).group(1).decode()
+    import uuid
+    print("  id контейнера: %s (версия %d)" % (cid, uuid.UUID(cid).version))
+    if uuid.UUID(cid).version != 7:
+        print("  id контейнера НЕ UUIDv7"); bad = 1
+    sat = rel[:-3] + ".comments.md"
+    # контейнер — check-file; спутник комментов конверта не имеет и проверяется ПАРОЙ (check-pair, D05 §2.5)
+    calls = [("check-file", [botrepo.VALIDATOR, "check-file", os.path.join(s.root, rel), "--path", rel, "--no-config"]),
+             ("check-pair", [botrepo.VALIDATOR, "check-pair", os.path.join(s.root, rel), "--comments", os.path.join(s.root, sat),
+                             "--path", rel, "--comments-path", sat, "--git-root", s.root, "--no-config"])]
+    for label, argv in calls:
+        r = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out = (r.stdout + r.stderr).decode("utf-8", "replace").strip().split("\n")[-1]
+        print("  %s: rc=%d %s" % (label, r.returncode, out))
+        if r.returncode != 0:
+            bad = 1
+finally:
+    s.close()
+sys.exit(bad)
+PY
+
 echo "== 3. трасса операций: pull → (write/check_line/check_pair/add) → commit; ретраи — числа из прогона"
 $PY - <<'PY' && ok "трасса напечатана; между pull и commit нет сетевых/чужих файловых операций; ретраи < окна retention" || bad "трасса/ретраи"
 # -*- coding: utf-8 -*-

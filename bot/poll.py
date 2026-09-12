@@ -21,13 +21,13 @@
 
 import os
 import sys
-import uuid
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 sys.path.insert(0, os.path.join(_HERE, "kit"))
 import yamlmini, tg, parse as parse_mod, session as session_mod, lastn, line as line_mod, identity as identity_mod  # noqa: E402
 import secrets as secrets_mod, state_store as ss, commit as commit_mod, build_help  # noqa: E402
+import comment as comment_mod  # noqa: E402 — раскладка UUIDv7 одна (id контейнера при ленивом создании)
 
 HOLD_OUTCOMES = ("conflict_p1_unmet", "retries_exhausted", "run_refused", "tool_failure")
 RECORD_OUTCOMES = ("recorded", "recorded_with_warning", "session_opened", "session_closed_recorded")
@@ -39,7 +39,7 @@ class Ctx(object):
         self.transport = transport
         self.cfg = cfg
         self.validator_bin = validator_bin
-        self.mint_id = mint_id or (lambda: str(uuid.uuid4()))  # v7 недоступен в stdlib 3.9; версия ≠ 7 → W-ID-VERSION (ядро 3.6)
+        self.mint_id = mint_id or comment_mod.uuid7_random   # id контейнера — СЛУЧАЙНЫЙ UUIDv7 (раскладка бит одна, в comment.py)
         self.sleeper = sleeper or (lambda s: __import__("time").sleep(s))
         self.bot_username = bot_username
         self.trace = commit_mod.Trace()

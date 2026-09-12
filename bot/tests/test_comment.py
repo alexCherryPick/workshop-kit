@@ -59,5 +59,22 @@ class CommentTests(unittest.TestCase):
         self.assertEqual(comment.comments_of_header("019550fa-1ea0-773c-b820-1e2b73ab4901"), "<!-- comments-of: 019550fa-1ea0-773c-b820-1e2b73ab4901 -->")
 
 
+
+class Uuid7RandomTests(unittest.TestCase):
+    """Живой прогон 2026-09-12: id контейнера минтился uuid4 → валидатор помечал запись бота W-ID-VERSION."""
+
+    def test_version_variant_and_timestamp(self):
+        import uuid as _u
+        ms = 1789173601000
+        v = comment.uuid7_random(now_ms=ms, entropy=b"\x00" * 10)
+        o = _u.UUID(v)
+        self.assertEqual(o.version, 7)
+        self.assertEqual((o.int >> 62) & 0b11, 0b10)          # вариант 10
+        self.assertEqual(o.int >> 80, ms)                      # 48 бит времени — unix-мс
+        # случайность: два минта в одну миллисекунду различаются
+        a = comment.uuid7_random(now_ms=ms); b = comment.uuid7_random(now_ms=ms)
+        self.assertNotEqual(a, b)
+        self.assertEqual(_u.UUID(a).version, 7)
+
 if __name__ == "__main__":
     unittest.main()

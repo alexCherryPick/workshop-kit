@@ -27,6 +27,22 @@ HEADER_RE = re.compile(r"^### (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z) · ([A-Za-z
 __all__ = ["COMMENT_DOMAIN", "comment_id", "timestamp_z", "header_line", "build", "comments_of_header"]
 
 
+def uuid7_random(now_ms=None, entropy=None):
+    """СЛУЧАЙНЫЙ UUIDv7 той же раскладкой бит, что и comment_id: 48 бит времени (unix-мс), версия 7,
+    вариант 10, остальное — случайно. Нужен минту id контейнера при ленивом создании (id контейнера
+    НЕ детерминирован — пересоздание незапушенного файла даёт новый id, глава §4), но форма обязана
+    быть v7: иначе валидатор помечает собственную запись бота W-ID-VERSION (живой прогон 2026-09-12)."""
+    import os as _os
+    import time as _time
+    ts_ms = int(_time.time() * 1000) if now_ms is None else int(now_ms)
+    if ts_ms < 0 or ts_ms >= (1 << 48):
+        raise ValueError("время вне диапазона UUIDv7")
+    e = _os.urandom(10) if entropy is None else bytes(entropy)
+    rand_a = int.from_bytes(e[0:2], "big") & ((1 << 12) - 1)
+    rand_b = int.from_bytes(e[2:10], "big") & ((1 << 62) - 1)
+    return str(uuid.UUID(int=(ts_ms << 80) | (7 << 76) | (rand_a << 64) | (2 << 62) | rand_b))
+
+
 def comment_id(ident, message_date, k=0):
     """UUIDv7 детерминированно из идентичности сообщения-носителя и k."""
     if not re.match(r"^tg:-?[0-9]+:[0-9]+$", ident):
