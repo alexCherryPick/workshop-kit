@@ -283,8 +283,8 @@ env = set(bs["env"].keys()); print("  env-ключей: %d, секретов в 
 sys.exit(0 if env <= secrets and bs["concurrency"]["group"] == tw["thin_wrapper"]["concurrency_group"] else 1)
 EOF
 
-echo "== 9б. рантайм обёрток: каждый скрипт из run обёрток комплекта присутствует в назначениях манифеста"
-$PY - <<'EOF2' && ok "скрипты, которые зовут обёртки, комплект кладёт (иначе прогон падает «can't open file»)" || bad "обёртка зовёт скрипт, которого комплект не ставит"
+echo "== 9б. полнота РАНТАЙМА комплекта: скрипты из run обёрток и импорты разложенных модулей — в раскладке"
+$PY - <<'EOF2' && ok "рантайм комплекта полон: скрипты обёрток и импорты разложенных модулей — все в раскладке" || bad "рантайм комплекта неполон (скрипт обёртки или импорт вне раскладки)"
 # -*- coding: utf-8 -*-
 import glob, re, sys
 sys.path.insert(0, "bot")
@@ -306,8 +306,31 @@ for w in sorted(glob.glob("bot/kit/workflows/*.yml")):
                 continue
             if path not in dsts:
                 bad.append("%s: %s" % (w.split("/")[-1], path))
-print("  вызовов скриптов в обёртках проверено; отсутствующих в манифесте: %d %s" % (len(bad), bad))
-sys.exit(1 if bad else 0)
+# КЛАСС (живой прогон 2026-09-12): рантайм не ограничен вызовами из обёрток — разложенный модуль
+# импортирует другие модули комплекта, и КАЖДЫЙ такой импорт обязан быть разложен тоже, иначе
+# прогон падает ModuleNotFoundError уже у заказчика. Проверяется по AST, не грепом.
+import ast, os
+laid = {e["dst"]: e["src"] for e in yamlmini.load_file("bot/kit/manifest.yaml")["entries"]}
+importable = {os.path.basename(d)[:-3] for d in laid if d.endswith(".py")}
+stdlib = set(getattr(sys, "stdlib_module_names", ())) | {"yamlmini"}
+missing = []
+for dst, src in sorted(laid.items()):
+    if not dst.endswith(".py"):
+        continue
+    tree = ast.parse(open(src, encoding="utf-8").read(), src)
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names |= {a.name.split(".")[0] for a in node.names}
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            names.add(node.module.split(".")[0])
+    for n in sorted(names):
+        if n in stdlib or n in importable:
+            continue
+        if os.path.exists(os.path.join("bot", n + ".py")) or os.path.exists(os.path.join("bot", "kit", n + ".py")):
+            missing.append("%s импортирует %s — модуль есть в комплекте, но НЕ разложен" % (dst, n))
+print("  вызовов скриптов в обёртках: отсутствующих в манифесте %d %s; импортов разложенных модулей вне раскладки: %d %s" % (len(bad), bad, len(missing), missing))
+sys.exit(1 if (bad or missing) else 0)
 EOF2
 
 echo "== 10. ручные шаги: N из реестра, блок инструкции, чувствительность"

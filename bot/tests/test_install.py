@@ -469,7 +469,8 @@ class ManifestAndExportTests(unittest.TestCase):
         self.assertIn("dst: .workshop/bot/kit/install-steps.yaml\n    role: code", out1)
         self.assertIn("dst: .workshop/bot/kit/validator-release.yaml\n    role: code", out1)
         # инструменты СБОРКИ у заказчика не нужны и не ставятся
-        for tool in ("build_manifest.py", "build_help.py", "wrapper_predicate.py"):
+        self.assertIn("dst: .workshop/bot/kit/build_help.py\n    role: code", out1)   # poll.py импортирует
+        for tool in ("build_manifest.py", "wrapper_predicate.py"):
             self.assertNotIn("src: bot/kit/%s" % tool, out1)
         self.assertTrue(out1.endswith("\n") and not out1.endswith("\n\n"))
 
