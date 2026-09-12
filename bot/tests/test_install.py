@@ -172,6 +172,28 @@ class LayoutTests(unittest.TestCase):
             self.assertIn("небезопасный путь назначения", out)
             self.assertFalse(os.path.exists(os.path.join(self.repo, ".workshop", "kit-version.yaml")), dst)
 
+    def test_layout_refuses_workflow_with_unfilled_pin(self):
+        # живой прогон 2026-09-12: обёртка комплекта с PIN-… ставилась молча и падала в CI
+        # «unable to resolve action» — установка обязана отказать с названной причиной
+        repo = tempfile.mkdtemp(prefix="repo-")
+        run(["git", "init", "-q", repo])
+        entries = self.k.entries + [("bot/kit/workflows/poller.yml", ".github/workflows/workshop-bot-poller.yml", "workflow")]
+        self.k.write_manifest(entries=entries)
+        rc, out = self.k.install(repo, "layout")
+        self.assertEqual(rc, 2, out)
+        self.assertIn("НЕЗАПОЛНЕННЫЕ пины", out)
+        self.assertIn("PIN-ACTION-CHECKOUT-SHA", out)
+        # пины заполнены (как в релизном коммите канала выдачи) → раскладка проходит
+        w = os.path.join(self.k.kit, "workflows", "poller.yml")
+        with open(w, encoding="utf-8") as fh:
+            t = fh.read()
+        with open(w, "w", encoding="utf-8") as fh:
+            fh.write(t.replace("PIN-ACTION-CHECKOUT-SHA", "a" * 40))
+        self.k.write_manifest(entries=entries)
+        rc, out = self.k.install(repo, "layout")
+        self.assertEqual(rc, 0, out)
+        shutil.rmtree(repo, ignore_errors=True)
+
     def test_check_people_after_layout(self):
         place_people_map(self.repo)
         self.k.install(self.repo, "layout")

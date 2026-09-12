@@ -50,7 +50,9 @@ _PERSON_HANDLE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")          # грамма
 _AUTHOR_HANDLE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,38}$")        # грамматика author конверта (envelope-fields.yaml:213)
 _OVERWRITE_ROLES = ("code", "hook", "policy", "workflow")
 # файлы, которыми релизный коммит МОЖЕТ отличаться от кодового коммита kit.ref (check-kit-ref)
-RELEASE_LAYER_PATHS = ("bot/kit/validator-release.yaml", "bot/kit/workflows/bootstrap.yml", "bot/kit/manifest.yaml")
+RELEASE_LAYER_PATHS = ("bot/kit/validator-release.yaml", "bot/kit/workflows/bootstrap.yml",
+                       "bot/kit/workflows/poller.yml", "bot/kit/workflows/heartbeat.yml",
+                       "bot/kit/manifest.yaml")
 _KEEP_ROLES = ("config", "state")
 _MANUAL_ROLE = "manual"
 
@@ -241,6 +243,18 @@ def cmd_layout(args):
         if actual != e["sha256"]:
             raise Refuse("комплект не совпадает с манифестом: %s sha256 %s ≠ %s" % (e["src"], actual, e["sha256"]))
         safe_path(repo, e["dst"])
+        # обёртка с НЕЗАПОЛНЕННЫМ пином ставиться НЕ ДОЛЖНА: в репозитории заказчика она даёт загадочный
+        # отказ CI («unable to resolve action»), а не названную причину (живой прогон 2026-09-12).
+        # Пины заполняет РЕЛИЗ (scripts/mirror_kit.sh, коммит релизного слоя), шаблон в монорепо их держит.
+        if e["role"] == "workflow":
+            body = _read(src).decode("utf-8", "replace")
+            unfilled = sorted(set(re.findall(r"PIN-[A-Z0-9-]+", body)))
+            if unfilled:
+                if not getattr(args, "allow_unfilled_pins", False):
+                    raise Refuse("обёртка %s несёт НЕЗАПОЛНЕННЫЕ пины %s — комплект НЕ ВЫПУЩЕН релизом; установка отказана (пины заполняет релизный коммит канала выдачи; для прогонов по шаблону монорепо — layout --allow-unfilled-pins)"
+                                 % (e["src"], ", ".join(unfilled)))
+                _say("! %s: НЕЗАПОЛНЕННЫЕ пины %s — прогон по ШАБЛОНУ (--allow-unfilled-pins); в репозиторий заказчика такой комплект не ставится"
+                     % (e["src"], ", ".join(unfilled)))
     # 2) план и дифф
     counts = {"create": 0, "update": 0, "same": 0, "keep": 0, "manual": 0}
     actions = []
@@ -462,6 +476,8 @@ def main(argv=None):
     sub.add_parser("check-secrets")
     p = sub.add_parser("layout")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--allow-unfilled-pins", action="store_true",
+                   help="разрешить раскладку обёрток с плейсхолдерами пинов — ТОЛЬКО для прогонов по шаблону монорепо; у заказчика комплект приходит выпущенным релизом")
     p = sub.add_parser("validator")
     p.add_argument("--release", default=None)
     p.add_argument("--target", default="x86_64-unknown-linux-gnu")

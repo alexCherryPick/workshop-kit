@@ -187,7 +187,7 @@ git -C "$REPO" init -q; git -C "$REPO" config user.email t@invalid; git -C "$REP
 cp "$GOLDEN_TS" "$REPO/time/TIMESHEET-2026-09-dev1.md"; printf -- '---\nid: x\n---\n' > "$REPO/tickets/PROP-1.md"
 git -C "$REPO" add -A; git -C "$REPO" commit -qm base
 SHA_BEFORE=$(shasum -a 256 "$REPO/time/TIMESHEET-2026-09-dev1.md" | cut -d' ' -f1)
-$PY bot/kit/install.py --repo "$REPO" --manifest "$WORK/manifest1.yaml" layout > "$WORK/inst1.txt"; RC1=$?
+$PY bot/kit/install.py --repo "$REPO" --manifest "$WORK/manifest1.yaml" layout --allow-unfilled-pins > "$WORK/inst1.txt"; RC1=$?
 tail -1 "$WORK/inst1.txt" | sed 's/^/  первый прогон: /'
 [ $RC1 -eq 0 ] && ok "первый прогон установщика rc=0" || bad "первый прогон установщика rc=$RC1"
 # правка 3 вердикта: карта людей — ручной шаг; после установки в репо нет ни файла карты, ни синтетических людей
@@ -199,7 +199,7 @@ $PY bot/kit/install.py --repo "$REPO" check-people > "$WORK/cp0.txt"; RC=$?; ech
 cp bot/kit/templates/people.yaml "$REPO/.workshop/people.yaml"   # ручной шаг people_map (имитация заказчика: копия шаблона)
 $PY bot/kit/install.py --repo "$REPO" --manifest "$WORK/manifest1.yaml" commit > "$WORK/commit1.txt"; sed 's/^/  /' "$WORK/commit1.txt"
 git -C "$REPO" add .workshop/people.yaml; git -C "$REPO" commit -qm "people map (manual step)"
-$PY bot/kit/install.py --repo "$REPO" --manifest "$WORK/manifest1.yaml" layout > "$WORK/inst2.txt"; RC2=$?
+$PY bot/kit/install.py --repo "$REPO" --manifest "$WORK/manifest1.yaml" layout --allow-unfilled-pins > "$WORK/inst2.txt"; RC2=$?
 tail -1 "$WORK/inst2.txt" | sed 's/^/  второй прогон: /'
 PORC=$(git -C "$REPO" status --porcelain | wc -l | tr -d ' ')
 echo "  git status --porcelain после второго прогона: $PORC строк"
