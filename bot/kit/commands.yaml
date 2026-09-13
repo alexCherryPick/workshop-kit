@@ -2,7 +2,7 @@
 # Читают трое, копии не держит никто: парсер (T2, каждый прогон), генератор /help и блока
 # инструкции (kit/build_help.py), гейт полноты справки (T6). Добавление команды = правка ЭТОГО
 # файла + перегенерация, и никогда правка кода парсера.
-# Ровно восемь позиций; «прочее» запрещено — всё, что не разбирается ни одной позицией, есть
+# Ровно девять позиций (T8: +отзыв); «прочее» запрещено — всё, что не разбирается ни одной позицией, есть
 # исход reask_unparsed (§1, исход 4), а update, не являющийся входом вовсе, — non_input (исход 9).
 schema_version: 1
 registry: commands
@@ -25,7 +25,7 @@ normalization:
   - id: whitespace_between_tokens
     rule: "между командным токеном и аргументами — один или более пробелов; внутри заголовка пробелы сохраняются дословно"
   - id: duration_units
-    rule: "длительность: `ЧЧ:ММ`, `Nч`, `Nм`, `Nh`, `Nm`, их сочетания через пробел; в целые секунды, затем Н1 (T2 §грамматика)"
+    rule: "длительность — по реестру форм kit/duration-forms.yaml (единицы ru/en с падежами, ЧЧ:ММ, десятичные часы, составные соседние единицы; позиция — начало строки, а при её отсутствии конец; неоднозначность — переспрос); в целые секунды, затем Н1 (T2 §грамматика, T8)"
   - id: interval_form
     rule: "интервал `<от>-<до>`: `ЧЧ:ММ-ЧЧ:ММ` местного времени человека (timezone карты людей) за «сегодня» по message.date; дата — правило умолчания T2"
 
@@ -89,7 +89,7 @@ commands:
     time_bearing: true
     callback_allowed: false
     tail_rule: after_first_line
-    outcomes: [recorded, recorded_with_warning, identical_repeat, reask_unparsed, reask_invalid, reask_correction, rejected_unknown_sender, rejected_secret, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure]
+    outcomes: [recorded, recorded_with_warning, identical_repeat, reask_unparsed, reask_invalid, rejected_unknown_sender, rejected_secret, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure]
     help_text: "записать интервал задним числом за сегодня"
     guide_text: |
       Записывает интервал задним числом: от и до — местное время вашего часового пояса из
@@ -98,7 +98,7 @@ commands:
   - id: free_text
     name: "<длительность> <заголовок>"
     token: ""
-    synopsis: "<длительность> <заголовок>[LF<хвост>] — например «2ч 40м созвон»"
+    synopsis: "<длительность> <заголовок>[LF<хвост>] либо <заголовок> <длительность> — формы длительности печатает справка из реестра kit/duration-forms.yaml"
     grammar: "01-message-to-line.md#grammar-free-text"
     example: "2ч 40м созвон по релизу"
     time_bearing: true
@@ -107,10 +107,14 @@ commands:
     outcomes: [recorded, recorded_with_warning, identical_repeat, reask_unparsed, reask_invalid, reask_correction, rejected_unknown_sender, rejected_secret, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure]
     help_text: "свободная строка: длительность и заголовок — запись за сегодня без интервала"
     guide_text: |
-      Свободное сообщение без команды: сначала длительность («2ч 40м», «1:20», «45м»), потом
-      заголовок. Записывается за сегодня по времени сообщения, без интервала. Сообщение,
-      которое бот не смог прочитать как длительность и заголовок, ничего не записывает — бот
-      переспросит и приложит краткую справку.
+      Свободное сообщение без команды: длительность и заголовок. Длительность — в начале строки
+      или, если в начале её нет, в конце; допустимые формы (единицы словами и сокращённо, по-русски и
+      по-английски, часы с минутами, десятичные часы) живут в реестре комплекта, их примеры печатает
+      справка — здесь они не перечисляются, чтобы не расходиться с реестром. Записывается
+      за сегодня по времени сообщения, без интервала. Сообщение, которое бот не смог прочитать как
+      длительность и заголовок, ничего не записывает — бот ответит одной строкой с причиной и
+      напомнит про справку. Фраза-исправление уже записанного (форма — в реестре форм, пример печатает
+      инструкция) строкой не становится: бот подскажет отзыв командой и правку в приложении.
   - id: last
     name: "/last [N]"
     token: "/last"
@@ -138,8 +142,29 @@ commands:
     outcomes: [help_given]
     help_text: "эта справка"
     guide_text: |
-      Краткая справка со всеми командами и примерами ввода времени. Та же справка приходит
-      в ответ на любое сообщение, которое бот не понял.
+      Краткая справка со всеми командами и примерами ввода времени. На сообщение, которое бот
+      не понял, приходит не справка, а одна строка с причиной и напоминанием об этой команде.
+  - id: undo
+    name: "/undo [N] [причина]"
+    token: "/undo"
+    synopsis: "[<N> — номер заголовка в списке последних на момент команды (порядок тот же, что у команды списка)] [<причина>][LF<хвост>]"
+    grammar: "01-message-to-line.md#grammar-undo"
+    example: "/undo 2 записал по ошибке"
+    time_bearing: false
+    callback_allowed: false
+    tail_rule: after_token
+    outcomes: [retracted, unretracted, identical_repeat, reask_undo_not_found, reask_unparsed, reask_invalid, rejected_unknown_sender, rejected_secret, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure]
+    help_text: "отозвать свою последнюю строку (без номера) или новейшую строку с заголовком номер N из списка последних; повтор по номеру отозванной — вернуть её в учёт"
+    guide_text: |
+      Отзывает вашу строку: без номера — последнюю записанную, с номером — новейшую строку с
+      заголовком под этим номером в списке последних заголовков на момент команды (порядок тот же, что
+      показывает команда списка; ответ всегда называет отозванную строку). Строка из файла не
+      исчезает и не правится: рядом появляется коммент-отзыв от вашего имени, строка показывается
+      зачёркнутой и из сумм исключается; текст после номера и всё сообщение целиком сохраняются в
+      этом комменте. Если строка под номером уже отозвана, та же команда возвращает её в учёт.
+      Одна команда — одна строка: у записи, перешедшей полночь, две строки, отзываются двумя
+      командами, ответ называет отозванную строку. Чужие строки и строки без якоря отозвать
+      нельзя. Правки часов на месте бот не делает — они делаются в приложении.
   - id: confirm
     name: "/confirm <исходное сообщение>"
     token: "/confirm"
@@ -149,7 +174,7 @@ commands:
     time_bearing: true
     callback_allowed: false
     tail_rule: as_wrapped
-    outcomes: [recorded, recorded_with_warning, identical_repeat, reask_unparsed, reask_invalid, reask_correction, rejected_unknown_sender, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure, session_opened, session_closed_recorded, reask_start_already_open, reask_stop_without_open]
+    outcomes: [recorded, recorded_with_warning, identical_repeat, reask_unparsed, reask_invalid, reask_correction, rejected_unknown_sender, conflict_p1_unmet, retries_exhausted, run_refused, tool_failure, session_opened, session_closed_recorded, reask_start_already_open, reask_stop_without_open, retracted, unretracted, reask_undo_not_found]
     help_text: "подтвердить запись, в которой бот увидел похожее на секрет: пришлите то же сообщение с этим префиксом"
     guide_text: |
       Если бот увидел в сообщении что-то похожее на секрет (ключ, токен, пароль), он ничего не

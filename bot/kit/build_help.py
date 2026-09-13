@@ -30,6 +30,8 @@ MARK_COMMANDS_START = "<!-- generated:commands:start -->"
 MARK_COMMANDS_END = "<!-- generated:commands:end -->"
 MARK_STEPS_START = "<!-- generated:steps:start -->"
 MARK_STEPS_END = "<!-- generated:steps:end -->"
+MARK_CORR_START = "<!-- generated:correction-example:start -->"
+MARK_CORR_END = "<!-- generated:correction-example:end -->"
 
 _REQUIRED_COMMAND_FIELDS = ("id", "name", "token", "synopsis", "grammar", "example", "time_bearing",
                             "callback_allowed", "tail_rule", "outcomes", "help_text", "guide_text")
@@ -68,29 +70,63 @@ def load_steps(path):
     return doc
 
 
+def load_forms(path):
+    """Реестр форм длительности (T8): справка и инструкция печатают ПРИМЕРЫ отсюда; списка форм в коде нет."""
+    doc = yamlmini.load_file(path)
+    if not isinstance(doc, dict) or doc.get("registry") != "duration_forms":
+        raise SystemExit("реестр форм длительности: не тот файл (registry != duration_forms): %s" % path)
+    forms = doc.get("forms")
+    if not isinstance(forms, list) or not forms:
+        raise SystemExit("реестр форм длительности пуст: %s" % path)
+    for f in forms:
+        for k in ("id", "example", "expected_seconds", "expected_title"):
+            if k not in f:
+                raise SystemExit("реестр форм: у формы %r нет поля %r" % (f.get("id"), k))
+    return doc
+
+
+def forms_examples_line(forms_doc):
+    return "Формы длительности (примеры из реестра, позиций: %d): %s" % (len(forms_doc["forms"]), "; ".join("«%s»" % f["example"] for f in forms_doc["forms"]))
+
+
 # ------------------------------------------------------------------ проекции
-def render_help(doc):
+def render_help(doc, forms_doc=None):
     cmds = doc["commands"]
     out = ["Команды бота (позиций в реестре: %d):" % len(cmds)]
     for c in cmds:
         out.append("%s — %s" % (c["name"], c["help_text"]))
         out.append("  пример: %s" % c["example"])
+    if forms_doc:
+        out.append(forms_examples_line(forms_doc))
     out.append("Время в командах берётся из времени вашего сообщения; «записано» приходит после push.")
     out.append("Префикс подтверждения после находки секрета: %s" % doc["confirm_prefix"])
     return "\n".join(out) + "\n"
 
 
 def render_short(doc):
+    """Краткая справка (имя — что делает), без примеров. С T8 в ответ на непонятое НЕ отправляется
+    (REQ-095: одна строка + указатель на справку); остаётся проекцией реестра для инструментов."""
     cmds = doc["commands"]
-    out = ["Не понял сообщение. Команды:"]
+    out = ["Команды:"]
     for c in cmds:
         out.append("%s — %s" % (c["name"], c["help_text"]))
     return "\n".join(out) + "\n"
 
 
-def render_commands_block(doc):
+def help_token(doc):
+    """Токен позиции справки — из реестра (для однострочного переспроса T8), не литералом."""
+    for c in doc["commands"]:
+        if c["grammar"].endswith("#grammar-help"):
+            return c["token"]
+    raise SystemExit("реестр команд: позиции со справкой (grammar-help) нет")
+
+
+def render_commands_block(doc, forms_doc=None):
     cmds = doc["commands"]
     out = ["Перечень команд (сгенерировано из реестра kit/commands.yaml; позиций: %d)." % len(cmds), ""]
+    if forms_doc:
+        out.append(forms_examples_line(forms_doc))
+        out.append("")
     for c in cmds:
         out.append("### `%s`" % c["name"])
         out.append("")
@@ -132,7 +168,7 @@ def render_steps_block(doc):
     return "\n".join(out) + "\n"
 
 
-def replace_between(text, start, end, block):
+def replace_between(text, start, end, block, inline=False):
     a = text.count(start)
     b = text.count(end)
     if a != 1 or b != 1:
@@ -141,14 +177,25 @@ def replace_between(text, start, end, block):
     j = text.index(end)
     if j < i:
         raise SystemExit("маркер конца раньше маркера начала: %s" % end)
-    return text[:i] + "\n" + block + text[j:]
+    return text[:i] + ("" if inline else "\n") + block + text[j:]
 
 
-def render_guide(guide_path, cmd_doc, steps_doc):
+def correction_example(forms_doc):
+    """Первый пример формы исправления из реестра — единственный пример исхода 6 в прозе инструкции (раунд 2, W4)."""
+    ex = (forms_doc or {}).get("correction_examples") or []
+    if not ex:
+        raise SystemExit("реестр форм: correction_examples пуст — инструкции нечего печатать")
+    return "«%s»" % ex[0]
+
+
+def render_guide(guide_path, cmd_doc, steps_doc, forms_doc=None):
+    if forms_doc is None:
+        forms_doc = load_forms(os.path.join(_HERE, "duration-forms.yaml"))
     with open(guide_path, "rb") as fh:
         text = fh.read().decode("utf-8")
-    text = replace_between(text, MARK_COMMANDS_START, MARK_COMMANDS_END, render_commands_block(cmd_doc))
+    text = replace_between(text, MARK_COMMANDS_START, MARK_COMMANDS_END, render_commands_block(cmd_doc, forms_doc))
     text = replace_between(text, MARK_STEPS_START, MARK_STEPS_END, render_steps_block(steps_doc))
+    text = replace_between(text, MARK_CORR_START, MARK_CORR_END, correction_example(forms_doc), inline=True)
     return text
 
 
@@ -156,10 +203,11 @@ def render_guide(guide_path, cmd_doc, steps_doc):
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="build_help.py")
     sub = ap.add_subparsers(dest="cmd")
-    for name in ("help", "short", "commands-block", "count-steps", "steps-block", "render"):
+    for name in ("help", "short", "commands-block", "count-steps", "steps-block", "render", "forms-line"):
         p = sub.add_parser(name)
         p.add_argument("--commands", default=os.path.join(_HERE, "commands.yaml"))
         p.add_argument("--steps", default=os.path.join(_HERE, "install-steps.yaml"))
+        p.add_argument("--forms", default=os.path.join(_HERE, "duration-forms.yaml"))
         if name == "render":
             p.add_argument("--guide", required=True)
             p.add_argument("--write", action="store_true")
@@ -168,17 +216,19 @@ def main(argv=None):
         ap.print_help()
         return 2
     if args.cmd == "help":
-        sys.stdout.write(render_help(load_commands(args.commands)))
+        sys.stdout.write(render_help(load_commands(args.commands), load_forms(args.forms)))
     elif args.cmd == "short":
         sys.stdout.write(render_short(load_commands(args.commands)))
+    elif args.cmd == "forms-line":
+        sys.stdout.write(forms_examples_line(load_forms(args.forms)) + "\n")
     elif args.cmd == "commands-block":
-        sys.stdout.write(render_commands_block(load_commands(args.commands)))
+        sys.stdout.write(render_commands_block(load_commands(args.commands), load_forms(args.forms)))
     elif args.cmd == "steps-block":
         sys.stdout.write(render_steps_block(load_steps(args.steps)))
     elif args.cmd == "count-steps":
         sys.stdout.write("%d\n" % len(load_steps(args.steps)["steps"]))
     elif args.cmd == "render":
-        text = render_guide(args.guide, load_commands(args.commands), load_steps(args.steps))
+        text = render_guide(args.guide, load_commands(args.commands), load_steps(args.steps), load_forms(args.forms))
         if args.write:
             with open(args.guide, "wb") as fh:
                 fh.write(text.encode("utf-8"))

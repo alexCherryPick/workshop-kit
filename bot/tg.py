@@ -10,6 +10,7 @@
 
 Три метода: get_updates, send_message, answer_callback_query.
 """
+import http.client
 import json
 import urllib.error
 import urllib.parse
@@ -82,6 +83,11 @@ class Transport(object):
             raw = self._opener(url, data, self._timeout_s)
         except TransportError as e:
             raise TransportError("%s: %s" % (method, _mask(str(e), self._token)), method=method)
+        except (OSError, http.client.HTTPException) as e:
+            # граница транспорта ЗАМКНУТА (раунд 8 T8, Codex B1): любая сетевая/HTTP ошибка открытия ИЛИ чтения ответа
+            # (таймаут, сброс соединения, RemoteDisconnected, IncompleteRead) — TransportError, не сырое исключение
+            # поставщика; текст без токена
+            raise TransportError("%s: %s: %s" % (method, type(e).__name__, _mask(str(e), self._token)), method=method)
         try:
             payload = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, ValueError) as e:

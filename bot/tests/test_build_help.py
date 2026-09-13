@@ -40,8 +40,8 @@ def steps_count(path):
 
 
 class ProjectionTests(unittest.TestCase):
-    def test_registry_has_eight_positions(self):
-        self.assertEqual(len(registry_names(COMMANDS)), 8)
+    def test_registry_has_nine_positions(self):
+        self.assertEqual(len(registry_names(COMMANDS)), 9)   # T8: +undo
 
     def test_help_short_block_cover_every_position(self):
         names = registry_names(COMMANDS)
@@ -51,7 +51,7 @@ class ProjectionTests(unittest.TestCase):
             for n in names:
                 self.assertIn(n, out, "%s: нет позиции %r" % (sub, n))
         rc, out = run("help")
-        self.assertIn("позиций в реестре: 8", out)
+        self.assertIn("позиций в реестре: 9", out)
 
     def test_deterministic(self):
         for sub in ("help", "short", "commands-block", "steps-block"):
@@ -102,7 +102,7 @@ class ProjectionTests(unittest.TestCase):
     def test_guide_markers_and_render_idempotent(self):
         with open(GUIDE, encoding="utf-8") as fh:
             guide = fh.read()
-        for tag in ("commands", "steps"):
+        for tag in ("commands", "steps", "correction-example"):
             self.assertEqual(guide.count("<!-- generated:%s:start -->" % tag), 1)
             self.assertEqual(guide.count("<!-- generated:%s:end -->" % tag), 1)
         rc, rendered = run("render", "--guide", GUIDE)
@@ -113,6 +113,12 @@ class ProjectionTests(unittest.TestCase):
         # проза вне сгенерированных блоков не называет команд литералами
         prose = re.sub(r"<!-- generated:commands:start -->.*?<!-- generated:commands:end -->", "", guide, flags=re.S)
         prose = re.sub(r"<!-- generated:steps:start -->.*?<!-- generated:steps:end -->", "", prose, flags=re.S)
+        # пример исхода 6 в прозе — из реестра (раунд 2, W4): совпадает с correction_examples[0] и парсится как correction
+        m = re.search(r"<!-- generated:correction-example:start -->(.*?)<!-- generated:correction-example:end -->", guide, re.S)
+        self.assertIsNotNone(m)
+        first = re.search(r'^correction_examples:\n  - "(.*)"$', open(os.path.join(os.path.dirname(COMMANDS), "duration-forms.yaml"), encoding="utf-8").read(), re.M).group(1)
+        self.assertEqual(m.group(1), "«%s»" % first)
+        self.assertNotIn("«", re.sub(r"<!-- generated:correction-example:start -->.*?<!-- generated:correction-example:end -->", "", prose.split("<!-- section: reask -->", 1)[1].split("<!-- section:", 1)[0], flags=re.S).replace("«длительность и\nзаголовок»", ""), "в разделе переспроса — рукописные примеры вне реестра")
         for n in registry_names(COMMANDS):
             tok = n.split(" ")[0]
             if tok.startswith("/") or tok.startswith("!"):

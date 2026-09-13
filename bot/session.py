@@ -176,6 +176,12 @@ def decide(record, parsed, person, config, last_titles=None, tail_of=None):
     if pos == "help":
         return {"outcome": "help_given", "new_record": UNCHANGED, "lines": [], "comments": [], "reply": {}}
 
+    if pos == "undo":
+        # T8: клетка {closed, open} × undo — состояние учёта НЕ трогается; сам исход (retracted / unretracted /
+        # reask_undo_not_found / identical_repeat) зависит от файлов и решается писателем (poll._handle_undo,
+        # undo.py); здесь — первичный исход клетки таблицы переходов и признак «решает писатель».
+        return {"outcome": "retracted", "new_record": UNCHANGED, "lines": [], "comments": [], "reply": {"decided_by": "undo"}}
+
     raise ValueError("позиция вне таблицы переходов: %r" % pos)
 
 

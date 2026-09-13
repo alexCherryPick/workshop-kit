@@ -16,14 +16,14 @@ FAILS=0; PASSES=0
 ok() { echo "  PASS  $1"; PASSES=$((PASSES+1)); }
 bad() { echo "  FAIL  $1"; FAILS=$((FAILS+1)); }
 
-echo "== 0. юнит-оракулы T3 (test_poll, test_state_store, test_commit) + таблица offset по 20 исходам"
+echo "== 0. юнит-оракулы T3 (test_poll, test_state_store, test_commit) + таблица offset по 23 исходам"
 D09_OFFSET_TABLE="$WORK/offset-table.txt" $PY -m unittest bot.tests.test_poll bot.tests.test_state_store bot.tests.test_commit > "$WORK/ut.txt" 2>&1; RC=$?
 grep -E '^(Ran|OK|FAILED)' "$WORK/ut.txt" | sed 's/^/  /'
 [ $RC -eq 0 ] && ok "unittest T3" || { bad "unittest T3"; grep -E '^(FAIL|ERROR):' "$WORK/ut.txt" | sed 's/^/    /'; }
 [ -f "$WORK/offset-table.txt" ] && cat "$WORK/offset-table.txt" | sed 's/^/  /'
 N_ADV=$(grep -c 'advances=advance' "$WORK/offset-table.txt" 2>/dev/null); N_HOLD=$(grep -c 'advances=hold' "$WORK/offset-table.txt" 2>/dev/null); N_NA=$(grep -c 'неприменимо' "$WORK/offset-table.txt" 2>/dev/null)
 echo "  таблица: advance=$N_ADV hold=$N_HOLD неприменимо=$N_NA (всего $((N_ADV+N_HOLD+N_NA)))"
-[ $((N_ADV+N_HOLD+N_NA)) -eq 20 ] && [ "$N_HOLD" -eq 4 ] && ok "двадцать исходов исполнены; hold ровно у 10–13" || bad "таблица offset неполна"
+[ $((N_ADV+N_HOLD+N_NA)) -eq 23 ] && [ "$N_HOLD" -eq 4 ] && ok "двадцать три исхода исполнены (T8: +3); hold ровно у 10–13" || bad "таблица offset неполна"
 
 echo "== 1. пиннованные фикстуры батчей: манифест (путь, sha256) — режим сверки; каждый батч через стенд"
 $PY - <<'PY' && ok "фикстуры: манифест сверен, ожидания исходов и число коммитов-записей совпали" || bad "фикстуры"

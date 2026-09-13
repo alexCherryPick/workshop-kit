@@ -146,6 +146,9 @@ def _first_rule(report):
     for ln in report.split("\n"):
         s = ln.strip()
         if s.startswith(("ERROR", "WARNING")):
-            m = re.search(r"\b([A-Z][A-Z0-9_]{3,}|[EW]-[A-Z0-9-]+|§\S+ №\S+)\b", s.split(":", 1)[-1])
+            body = s.split(":", 1)[-1]
+            # порядок альтернатив (раунд 1 T8, №8): сначала адрес формы «§… №…» (без \b — перед § нет границы слова),
+            # затем коды; иначе из «§04.3.4 №ERROR-4» человеку уходит слово «ERROR»
+            m = re.search(r"(§\S+ №\S+)", body) or re.search(r"\b([EW]-[A-Z0-9-]+|[A-Z][A-Z0-9_]{3,})\b", body)
             return m.group(1) if m else s
     return None

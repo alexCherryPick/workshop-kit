@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Оракул поллера (T3): стенд botrepo (bare-origin + клон + фейковый транспорт + НАСТОЯЩИЙ валидатор).
-Ожидания — из байтов файлов и git-журнала. Таблица продвижения offset по 20 исходам читается из
+Ожидания — из байтов файлов и git-журнала. Таблица продвижения offset по 23 исходам (T8) читается из
 контракта (tg-bot.yaml outcomes) и исполняется целиком: каждый исход воспроизводится фикстурой,
 offset «до/после» печатается."""
 import os, re, sys, unittest, hashlib
@@ -22,7 +22,7 @@ T0 = 1788790990  # 2026-09-07T14:23:10Z
 
 
 def contract_outcomes():
-    """[(ordinal, id, offset)] — ДВАДЦАТЬ исходов из машинного дубля контракта (tg-bot.yaml outcomes),
+    """[(ordinal, id, offset)] — исходы (23 после T8) из машинного дубля контракта (tg-bot.yaml outcomes),
     построчным чтением полей ordinal/id/offset; ручной копии перечня в тесте нет."""
     rows, cur, inside = [], {}, False
     for ln in open(CONTRACT, encoding="utf-8"):
@@ -452,7 +452,7 @@ class TestOffsetTable(Base):
         F["identical_repeat"] = lambda: self._replay()
         F["reask_unparsed"] = lambda: self.run_poll([msg("/frobnicate")])
         F["reask_invalid"] = lambda: self.run_poll([msg("2ч работа")], validator=fake_bin(2))
-        F["reask_correction"] = lambda: self.run_poll([msg(TOK["track"] + " 10:00-09:00 x")]) if False else self.run_poll([msg("2ч работа")])  # (см. ниже)
+        F["reask_correction"] = lambda: self.run_poll([msg("не 3.25, а 1.25 часа", chat_type="private")])   # T8: маркер исправления реестра форм → исход 6, записи нет
         F["rejected_unknown_sender"] = lambda: self.run_poll_off([msg("2ч работа", from_id=UNKNOWN_ID, chat_type="private")])
         F["rejected_secret"] = lambda: self.run_poll([msg("2ч ключ ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcd")])
         F["non_input"] = lambda: self.run_poll([{"update_id": 900200001, "edited_message": {"message_id": 1, "chat": {"id": CHAT, "type": "supergroup"}, "from": {"id": ADMIN_ID}, "text": "x"}}])
@@ -466,6 +466,10 @@ class TestOffsetTable(Base):
         F["reask_stop_without_open"] = lambda: self.run_poll([msg(TOK["stop"])])
         F["help_given"] = lambda: self.run_poll([msg(TOK["help"])])
         F["last_list_given"] = lambda: self.run_poll([msg(TOK["last"])])
+        # T8: отзыв своей строки / возврат по номеру / нечего отзывать
+        F["retracted"] = lambda: self.run_poll([msg("2ч работа", date=T0), msg(TOK["undo"] + " по ошибке", date=T0 + 60)])
+        F["unretracted"] = lambda: self.run_poll([msg("2ч работа", date=T0), msg(TOK["undo"], date=T0 + 60), msg(TOK["last"], date=T0 + 120), msg(TOK["undo"] + " 1 вернуть", date=T0 + 180)])
+        F["reask_undo_not_found"] = lambda: self.run_poll([msg(TOK["undo"])])
         return F
 
     def run_poll_off(self, updates):
@@ -489,14 +493,12 @@ class TestOffsetTable(Base):
 
     def test_table(self):
         rows = contract_outcomes()
-        self.assertEqual(len(rows), 20)
+        self.assertEqual(len(rows), 23)   # T8: +retracted, unretracted, reask_undo_not_found
         table = ["  offset-table (исход: offset до → после; advances по контракту)"]
         seen = set()
         for oid, name, adv in rows:
             if name == "session_stale":
                 table.append("  %2d %-26s неприменимо (порождается сторожем T5, к offset отношения не имеет)" % (oid, name)); seen.add(name); continue
-            if name == "reask_correction":
-                table.append("  %2d %-26s неприменимо в T3: исправления через бота — вне D09 (граница «9.2 ок»); исход зарезервирован контрактом" % (oid, name)); seen.add(name); continue
             self.tearDown(); self.setUp()
             before = self.offset()
             r, t, ctx = self.fixtures()[name]()
@@ -512,12 +514,241 @@ class TestOffsetTable(Base):
                 self.assertLessEqual(origin_offset(self.s), last[0], name)   # авторитет (origin) не продвинут за удержанный update
                 self.assertIsNotNone(r["held"], name)
             seen.add(name)
-        self.assertEqual(len(seen), 20)
+        self.assertEqual(len(seen), 23)
         out = os.environ.get("D09_OFFSET_TABLE")   # selfcheck_t3.sh печатает таблицу из этого файла; поток unittest не засоряется
         if out:
             with open(out, "w", encoding="utf-8") as fh:
                 fh.write("\n".join(table) + "\n")
 
+
+
+    def test_reask_long_variable_part_keeps_help_pointer(self):
+        """Раунд 1, №2/№9: длинный заголовок в переспросе обрезается, указатель на справку остаётся целиком."""
+        long_title = "очень длинный заголовок " * 12
+        r, t, _ = self.run_poll([msg(TOK["start_title"] + " " + long_title.strip(), date=T0), msg(TOK["start_title"] + " y", date=T0 + 60)])
+        self.assertEqual(r["outcomes"][-1][1], "reask_start_already_open")
+        reply = t.sent[-1][1]
+        self.assertLessEqual(len(reply), poll.SHORT_REPLY_MAX)
+        self.assertEqual(len(reply.split("\n")), 1)
+        self.assertIn("…", reply)
+        self.assertTrue(reply.endswith(poll.build_help.help_token(_.commands_doc) + " — команды и примеры"), reply)
+
+
+    def test_reask_long_variable_parts_keep_every_fixed_fragment(self):
+        """Раунд 2, W2: фиксированные части ПОСЛЕ переменной (время начала, подсказка закрытия, «поправь и пришли снова»)
+        уцелевают при переменной части 0/100/300 символов — все шесть reask_*."""
+        ctx = poll.Ctx(self.s.root, FakeTransport([]), self.cfg, botrepo.VALIDATOR, bot_username="x", sleeper=lambda x: None)
+        help_tail = poll.build_help.help_token(ctx.commands_doc) + " — команды и примеры"
+        for n in (0, 100, 300):
+            var = "з" * n
+            cases = {
+                "reask_unparsed": (poll.reply_text(ctx, "reask_unparsed", {"reply": {"reason": var}}, {}), ["не понял (", ")."]),
+                "reask_invalid": (poll.reply_text(ctx, "reask_invalid", None, {}, {"rule": var}), ["не записал: валидатор отверг строку — правило ", ". Поправь и пришли снова."]),
+                "reask_correction": (poll.reply_text(ctx, "reask_correction", None, {}), ["часы на месте бот не правит", "поправить — в приложении. Не записано."]),
+                "reask_start_already_open": (poll.reply_text(ctx, "reask_start_already_open", {"reply": {"title": var, "started_at_local": "2026-09-07T16:00:00+02:00"}}, {}), ["учёт уже открыт: «", "» с 2026-09-07T16:00:00+02:00. Закрыть — ", TOK["stop"] + "."]),
+                "reask_stop_without_open": (poll.reply_text(ctx, "reask_stop_without_open", None, {}), ["открытого учёта нет."]),
+                "reask_undo_not_found": (poll.reply_text(ctx, "reask_undo_not_found", {"reply": {"reason": var}}, {}), ["нечего отзывать (", ")."]),
+            }
+            for oc, (reply, fixed) in cases.items():
+                self.assertLessEqual(len(reply), poll.SHORT_REPLY_MAX, (oc, n, reply))
+                self.assertEqual(len(reply.split("\n")), 1, (oc, n))
+                self.assertTrue(reply.endswith(help_tail), (oc, n, reply))
+                for frag in fixed:
+                    self.assertIn(frag, reply, (oc, n, frag, reply))
+                if n >= 300 and oc not in ("reask_correction", "reask_stop_without_open"):
+                    self.assertIn("…", reply, (oc, n))      # обрезана переменная часть, и только она
+                if n == 100 and oc in ("reask_unparsed", "reask_undo_not_found"):
+                    self.assertIn(var, reply, (oc, n))      # укладывается — не обрезается
+
+    def test_main_turns_any_exception_into_tool_failure_with_alarm(self):
+        """Раунд 2 W3 / раунд 3 W1+R3: ЛЮБОЕ исключение поллера (все прежние «тихие» классы включительно) → TOOL_FAILURE
+        rc=10 + алярм по карте, прочитанной до прогона; без bot.yaml — TOOL_FAILURE, не трейсбек."""
+        import io, contextlib, shutil, tempfile
+        sent = []
+        class T(object):
+            def __init__(self, *a, **kw): pass
+            def call(self, method, params): return {"username": "x"}
+            def send_message(self, chat_id, text, **kw): sent.append((chat_id, text)); return {}
+        orig_tr, orig_run, orig_cwd = poll.tg.Transport, poll.run_once, os.getcwd()
+        excs = [RecursionError("deep"), poll.ss.StateError("state"), poll.commit_mod.GitError("fetch", "detail"), OSError("io"), ValueError("people form"), RuntimeError("x")]
+        stage = {"getme": None}
+        class T2(T):
+            def call(self, method, params):
+                if stage["getme"] is not None: raise stage["getme"]
+                return {"username": "x"}
+        try:
+            poll.tg.Transport = T2
+            # матрица (раунд 4, W1): стадия {прогон, getMe} × 6 классов исключений → rc=10, TOOL_FAILURE, алярм
+            for where in ("run", "getme"):
+                for exc in excs:
+                    del sent[:]; stage["getme"] = exc if where == "getme" else None
+                    def boom(ctx, _e=exc): raise _e
+                    poll.run_once = boom
+                    out = io.StringIO()
+                    os.chdir(self.s.root)
+                    with contextlib.redirect_stdout(out):
+                        rc = poll.main()
+                    self.assertEqual(rc, 10, (where, type(exc).__name__))
+                    self.assertIn("TOOL_FAILURE %s" % type(exc).__name__, out.getvalue())
+                    self.assertTrue(sent and "сбой поллера" in sent[0][1], (where, type(exc).__name__, sent, out.getvalue()))
+            stage["getme"] = None
+            # порченая секция watchdog (строка/список/число/bool) — аварийный контур замкнут: rc=10, алярм admins (раунд 5, W1)
+            cfg_path = os.path.join(self.s.root, ".workshop", "bot.yaml"); keep_cfg = open(cfg_path, "rb").read()
+            try:
+                for bad in ("watchdog: строка\n", "watchdog: [1, 2]\n", "watchdog: 7\n", "watchdog: true\n"):
+                    body = re.sub(r"(?ms)^watchdog:\n(?:[ \t]+.*\n)*", "", keep_cfg.decode("utf-8"))
+                    with open(cfg_path, "wb") as fh:
+                        fh.write((body.rstrip("\n") + "\n" + bad).encode("utf-8"))
+                    del sent[:]
+                    def boom2(ctx): raise OSError("probe")
+                    poll.run_once = boom2
+                    out = io.StringIO()
+                    with contextlib.redirect_stdout(out):
+                        rc = poll.main()
+                    self.assertEqual(rc, 10, bad); self.assertIn("TOOL_FAILURE OSError", out.getvalue())
+                    self.assertTrue(sent and "сбой поллера" in sent[0][1], (bad, sent, out.getvalue()))
+            finally:
+                with open(cfg_path, "wb") as fh:
+                    fh.write(keep_cfg)
+            # порча карты людей ДО прогона: адресатов по карте нет, но rc=10 и TOOL_FAILURE есть, трейсбека нет
+            del sent[:]
+            people_path = os.path.join(self.s.root, ".workshop", "people.yaml"); keep = open(people_path, "rb").read()
+            with open(people_path, "wb") as fh:
+                fh.write(b"people: [\n")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = poll.main()
+            with open(people_path, "wb") as fh:
+                fh.write(keep)
+            self.assertEqual(rc, 10); self.assertIn("TOOL_FAILURE", out.getvalue())
+            # без bot.yaml — TOOL_FAILURE rc=10, не исключение интерпретатора
+            empty = tempfile.mkdtemp()
+            try:
+                os.chdir(empty); out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    rc = poll.main()
+                self.assertEqual(rc, 10); self.assertIn("TOOL_FAILURE", out.getvalue())
+            finally:
+                os.chdir(orig_cwd); shutil.rmtree(empty, ignore_errors=True)
+        finally:
+            poll.tg.Transport, poll.run_once = orig_tr, orig_run
+            os.chdir(orig_cwd)
+
+    def test_short_template_contract(self):
+        """Раунд 3, R2: фиксированные части никогда не режутся — шаблон длиннее лимита отвергается явно; нулевой
+        бюджет опускает переменную без «…»; несколько переменных делят бюджет."""
+        with self.assertRaises(ValueError):
+            poll._short(["A" * 150, ("v" * 300, True), "FIXED_END"], "/tail")
+        r = poll._short(["A" * 150, ("v" * 300, True), "END"], "/tail")   # 150+3+6 = 159 ≤ 160: бюджет переменной 1 → «…»
+        self.assertEqual(r, "A" * 150 + "…END /tail")
+        r = poll._short(["A" * 151, ("v" * 300, True), "END"], "/tail")   # бюджет 0 → переменная опущена без «…»
+        self.assertEqual(r, "A" * 151 + "END /tail")
+        r = poll._short(["a ", ("x" * 200, True), " b ", ("y" * 200, True), " c"], "/t")
+        self.assertLessEqual(len(r), poll.SHORT_REPLY_MAX); self.assertTrue(r.startswith("a ") and " b " in r and r.endswith(" c /t"))
+        self.assertEqual(r.count("…"), 2)
+
+
+    def test_reask_is_one_line_for_any_unicode_line_break(self):
+        """Раунд 7, W1: CR, CRLF, VT, FF, NEL, LS, PS в переменной части → один пробел; ответ — одна строка по splitlines()."""
+        ctx = poll.Ctx(self.s.root, FakeTransport([]), self.cfg, botrepo.VALIDATOR, bot_username="x", sleeper=lambda x: None)
+        for br in ("\n", "\r", "\r\n", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029", "\n\n\r"):   # раунд 8: весь репертуар splitlines()
+            for n in (1, 30):
+                var = ("unknown_command:/unknown" + br + "next") * n
+                for oc, dec, extra in (("reask_unparsed", {"reply": {"reason": var}}, None), ("reask_invalid", None, {"rule": var}),
+                                       ("reask_start_already_open", {"reply": {"title": var, "started_at_local": "2026-09-07T16:00:00+02:00"}}, None),
+                                       ("reask_undo_not_found", {"reply": {"reason": var}}, None)):
+                    reply = poll.reply_text(ctx, oc, dec, {}, extra)
+                    self.assertEqual(len(reply.splitlines()), 1, (oc, repr(br), n, reply))
+                    self.assertLessEqual(len(reply), poll.SHORT_REPLY_MAX)
+                    self.assertTrue(reply.endswith(" — команды и примеры"), reply)
+
+
+    def test_callback_gate_precedes_every_dispatch(self):
+        """Раунд 7 Fable, B1: нажатие кнопки по КАЖДОЙ позиции реестра — либо исполняется (callback_allowed ∧ не
+        time_bearing), либо reask_unparsed с причиной; никогда TOOL_FAILURE/исключение; offset продвигается."""
+        self.run_poll([msg("2ч созвон", date=T0)])
+        for pos in self.cfg_registry_positions():
+            token = pos["token"] or ""
+            data = {"start_title": token + " x", "start_n": token + " 1", "undo": token + " 1", "track": token + " 10:00-11:00 x",
+                    "free_text": "1ч x"}.get(pos["id"], token or "просто текст")   # синтаксически верный аргумент: судится гейт кнопки, не разбор
+            r, t, ctx = self.run_poll([callback(data)])
+            oc = r["outcomes"][-1][1]
+            self.assertNotIn(oc, ("tool_failure",), (pos["id"], oc))
+            if pos["time_bearing"]:
+                self.assertEqual(oc, "reask_unparsed", pos["id"]); self.assertIn("callback_time_bearing", t.sent[-1][1])
+            elif not pos["callback_allowed"]:
+                self.assertEqual(oc, "reask_unparsed", pos["id"]); self.assertIn("callback_not_allowed", t.sent[-1][1])
+            else:
+                self.assertNotEqual(oc, "reask_unparsed", (pos["id"], oc, t.sent[-1][1] if t.sent else None))
+            self.assertEqual(self.offset(), r["outcomes"][-1][0] + 1)
+
+    def cfg_registry_positions(self):
+        return [p for p in poll.yamlmini.load_file(os.path.join(os.path.dirname(__file__), "..", "kit", "commands.yaml"))["commands"] if p["id"] != "confirm"]
+
+    def test_undelivered_reply_and_long_list_do_not_stall_poller(self):
+        """Раунд 7 Fable, B2: (а) список из многих заголовков — частями ≤ 4096, N ограничен last_max_n; (б) отказ
+        доставки ответа (403 «бот заблокирован») — исход стоит, offset продвигается, поллер не падает."""
+        for k in range(120):
+            self.run_poll([msg("1ч заголовок номер %d %s" % (k, "x" * 60), date=T0 + k * 100)])
+        r, t, ctx = self.run_poll([msg(TOK["last"] + " 9999", date=T0 + 100000)])
+        self.assertEqual(r["outcomes"][-1][1], "last_list_given")
+        self.assertTrue(all(len(x[1]) <= poll.TG_TEXT_MAX for x in t.sent), [len(x[1]) for x in t.sent])
+        listed = sum(1 for x in t.sent for ln in x[1].split("\n") if re.match(r"\s*\d+[.)]", ln))
+        self.assertLessEqual(listed, int(self.cfg.get("last_max_n", 50)))
+        for k, exc in enumerate((poll.tg.TransportError("sendMessage: Forbidden: bot was blocked by the user", "sendMessage", "blocked", 403),
+                                 poll.tg.TransportError("sendMessage: ConnectionResetError: reset", "sendMessage"))):   # раунд 10 A (m06): и без error_code
+            class Blocked(FakeTransport):
+                def send_message(self, chat_id, text, **kw):
+                    raise exc
+            t = Blocked([msg("1ч после блокировки %d" % k, date=T0 + 200000 + k * 100)])
+            ctx = poll.Ctx(self.s.root, t, self.cfg, botrepo.VALIDATOR, bot_username="cp_workshop_test_bot", sleeper=lambda x: None)
+            r = poll.run_once(ctx)
+            self.assertEqual(r["outcomes"][-1][1], "recorded", r["outcomes"])
+            self.assertEqual(self.offset(), r["outcomes"][-1][0] + 1)
+            self.assertTrue(any("send_failed" in ln for ln in ctx.trace.lines()))
+
+
+    def test_leading_invisible_chars_keep_byte_contracts(self):
+        """Раунд 9 Fable, W1: невидимые символы (BOM/LRM/ZWSP) в начале сообщения не создают фантомного хвоста/коммента и
+        не ломают подтверждение: байты хвоста/тела считаются от исходной строки."""
+        cm = os.path.join(self.s.root, "time", "TIMESHEET-2026-09-dev-one.comments.md")
+        def blocks():
+            return open(cm, "rb").read().count(b"<!--c:") if os.path.exists(cm) else 0
+        # контроль: тот же цикл без невидимых символов — число комментов после него есть эталон класса
+        self.run_poll([msg(TOK["start_title"] + " созвон", date=T0 - 20000, chat_type="private"), msg(TOK["stop"], date=T0 - 16400, chat_type="private")])
+        per_cycle = blocks()
+        self.run_poll([msg(TOK["undo"], date=T0 - 16000, chat_type="private")])
+        for inv in ("\ufeff", "\u200e", "\u200b"):
+            before = blocks()
+            r, t, ctx = self.run_poll([msg(inv + TOK["start_title"] + " созвон", date=T0, chat_type="private"), msg(inv + TOK["stop"], date=T0 + 3600, chat_type="private")])
+            ocs = [x[1] for x in r["outcomes"]]
+            self.assertIn(ocs[-1], ("session_closed_recorded", "reask_unparsed"), (repr(inv), ocs, t.sent[-1][1] if t.sent else None))
+            if ocs[-1] == "session_closed_recorded":
+                self.assertEqual(blocks() - before, per_cycle, (repr(inv), "число комментов ≠ эталону цикла: фантомный коммент из хвоста"))   # раунд 10 B: класс, не пример
+            self.run_poll([msg(TOK["stop"], date=T0 + 7000, chat_type="private"), msg(TOK["undo"], date=T0 + 7200, chat_type="private")])
+
+    def test_start_n_beyond_shown_list_is_reask(self):
+        """Раунд 9 Fable (мутант m05): повтор по N больше предела показа — переспрос, не повтор невидимой строки."""
+        cap = int(self.cfg.get("last_max_n", 50))
+        for k in range(cap + 2):
+            self.run_poll([msg("1ч строка %d" % k, date=T0 + k * 100)])
+        self.run_poll([msg(TOK["last"] + " 9999", date=T0 + 100000)])
+        r, t, _ = self.run_poll([msg(TOK["start_n"] + " %d" % (cap + 1), date=T0 + 100010)])
+        self.assertEqual(r["outcomes"][-1][1], "reask_unparsed", r["outcomes"])
+
+
+    def test_state_is_reread_after_fast_forward(self):
+        """Раунд 10 A (m03): после fast-forward до origin файлы состояния перечитываются — чужой push, открывший учёт
+        dev-one, виден следующему же батчу (иначе закрытие отвечало бы «открытого учёта нет»)."""
+        other = self.s.other_clone()
+        doc = poll.ss.read_sessions(other)
+        doc = poll.ss.open_session(doc, "dev-one", {"title": "чужое открытие", "start_text": "чужое открытие", "started_at": T0 - 3600,
+                                                    "started_at_local": "2026-09-07T15:23:10+02:00", "chat_id": CHAT, "start_update_id": 7,
+                                                    "start_message_id": 7, "schema_version": 1})
+        poll.ss.write_sessions(other, doc)
+        git(other, "commit", "-qam", "foreign open for dev-one"); git(other, "push", "-q", "origin", "HEAD:main")
+        r, t, ctx = self.run_poll([msg(TOK["stop"], date=T0)])
+        self.assertEqual(r["outcomes"][-1][1], "session_closed_recorded", (r["outcomes"], t.sent[-1][1] if t.sent else None))
 
 if __name__ == "__main__":
     unittest.main()

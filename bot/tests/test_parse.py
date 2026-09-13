@@ -40,8 +40,8 @@ class ParseTests(unittest.TestCase):
         self.P = parse.Parser(REG, bot_username="cp_workshop_test_bot")
         self.rows = registry_rows()
 
-    def test_registry_has_eight_positions_and_parser_reads_it(self):
-        self.assertEqual(len(self.rows), 8)
+    def test_registry_has_nine_positions_and_parser_reads_it(self):
+        self.assertEqual(len(self.rows), 9)   # T8: +undo
         ids = {r["id"] for r in self.rows}
         self.assertEqual(set(self.P.by_id), ids)
         for r in self.rows:
@@ -181,6 +181,59 @@ class Round2Tests(unittest.TestCase):
         r = self.P.parse(upd("2ч созвон\r\nтело"))
         self.assertEqual(r["title"], "созвон")
 
+
+
+    def test_undo_n_grammar_matrix(self):
+        """Раунд 1, №3: N — только положительное целое; опечатки не превращаются в «без номера»."""
+        und = self.P.by_id["undo"]["token"]
+        def one(text):
+            r = self.P.parse(upd(text))
+            return (r["kind"], r.get("n"), r.get("title"), r.get("reason"))
+        cases = [
+            ("3", ("input", 3, "", None)), ("3 лишняя", ("input", 3, "лишняя", None)), ("03", ("input", 3, "", None)),
+            ("3-й лишняя", ("input", 3, "лишняя", None)), ("3й", ("input", 3, "", None)), ("№3", ("input", 3, "", None)),
+            ("#3 x", ("input", 3, "x", None)), ("3, лишняя", ("input", 3, "лишняя", None)),
+            ("", ("input", None, "", None)), ("причина", ("input", None, "причина", None)),
+            ("3x", ("unparsed", None, None, "n_not_positive_integer")), ("0", ("unparsed", None, None, "n_not_positive_integer")),
+            ("-1", ("unparsed", None, None, "n_not_positive_integer")), ("+2", ("unparsed", None, None, "n_not_positive_integer")),
+            ("3.5", ("unparsed", None, None, "n_not_positive_integer")), ("1e3", ("unparsed", None, None, "n_not_positive_integer")),
+            # раунд 2, W5: скобки/кавычки вокруг номера — номер; цифры без букв, не разобравшиеся, — переспрос
+            ("(3)", ("input", 3, "", None)), ("«3»", ("input", 3, "", None)), ("[3] лишняя", ("input", 3, "лишняя", None)),
+            ('"3"', ("input", 3, "", None)), ("3.", ("input", 3, "", None)), ("(3-й)", ("input", 3, "", None)),
+            ("2026-09-01", ("unparsed", None, None, "n_not_positive_integer")), ("(x)", ("input", None, "(x)", None)),
+            ("v2 лишняя", ("input", None, "v2 лишняя", None)),
+            # раунд 3 (B1/W3): Unicode-обёртки и префиксы, числоподобные символы — N либо переспрос, никогда «без N»
+            ("（２й） лишняя", ("input", 2, "лишняя", None)), ("“3”", ("input", 3, "", None)), ("«3».", ("input", 3, "", None)),
+            ("Nº3", ("input", 3, "", None)), ("N3", ("input", 3, "", None)), ("No.4 x", ("input", 4, "x", None)), ("n°2", ("input", 2, "", None)),
+            ("#３", ("input", 3, "", None)), ("٣", ("input", 3, "", None)),
+            ("½", ("unparsed", None, None, "n_not_positive_integer")), ("③", ("unparsed", None, None, "n_not_positive_integer")),
+            ("³", ("unparsed", None, None, "n_not_positive_integer")), ("Ⅲ", ("unparsed", None, None, "n_not_positive_integer")),
+            ("N", ("input", None, "N", None)), ("nota", ("input", None, "nota", None)),
+            # раунд 4 (B1): композиция префикс × обёртка × суффикс — снимается до неподвижной точки
+            ("#(2-й) лишняя", ("input", 2, "лишняя", None)), ("№（２й） лишняя", ("input", 2, "лишняя", None)), ("N(2)", ("input", 2, "", None)),
+            ("(№2)", ("input", 2, "", None)), ("(#3-й)", ("input", 3, "", None)), ("«No.2»", ("input", 2, "", None)),
+            ("#(x)", ("input", None, "#(x)", None)), ("№", ("input", None, "№", None)),   # без единого числоподобного символа — причина (раунд 5)
+            ("(3x)", ("unparsed", None, None, "n_not_positive_integer")), ("[½]", ("unparsed", None, None, "n_not_positive_integer")),
+            # раунд 5 (B1): соседние префиксы в любом числе и порядке
+            ("##(2-й) лишняя", ("input", 2, "лишняя", None)), ("№#（２й） лишняя", ("input", 2, "лишняя", None)), ("NNo.(2-й)", ("input", 2, "", None)),
+            ("N(№2-й)", ("input", 2, "", None)), ("№№3", ("input", 3, "", None)), ("#N#3", ("input", 3, "", None)),
+            ("##(x)", ("input", None, "##(x)", None)), ("NN", ("input", None, "NN", None)), ("№#", ("input", None, "№#", None)),
+            ("##(3x)", ("unparsed", None, None, "n_not_positive_integer")),
+            ("\u200b3", ("input", 3, "", None)), ("(\u00ad3)", ("input", 3, "", None)), ("3\u200d лишняя", ("input", 3, "лишняя", None)),   # Cf в лексеме N (раунд 9)
+            ("\u200b 3", ("input", 3, "", None)), ("\u200b 3 лишняя", ("input", 3, "лишняя", None)), ("\ufeff\u200b 3", ("input", 3, "", None)),   # фантомная лексема (раунд 10)
+        ]
+        for tail, want in cases:
+            text = (und + " " + tail).rstrip()
+            self.assertEqual(one(text), want, text)
+
+
+    def test_phantom_lexeme_in_start_n_and_last(self):
+        """Раунд 10 B, W1/W4: лексема из одних невидимых символов — не лексема; видимая форма N у повтора и списка."""
+        st, la = self.P.by_id["start_n"]["token"], self.P.by_id["last"]["token"]
+        for arg, want in (("\u200b2", 2), (" \u200b 2", 2), ("2\u200b", 2), ("\ufeff5", 5)):
+            r = self.P.parse(upd(st + " " + arg)); self.assertEqual((r["kind"], r.get("n")), ("input", want), repr(arg))
+            r = self.P.parse(upd(la + " " + arg)); self.assertEqual((r["kind"], r.get("n")), ("input", want), repr(arg))
+        r = self.P.parse(upd(st + " \u200b")); self.assertEqual((r["kind"], r.get("reason")), ("unparsed", "title_empty"))   # ни номера, ни видимого заголовка
 
 if __name__ == "__main__":
     unittest.main()

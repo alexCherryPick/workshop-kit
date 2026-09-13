@@ -11,14 +11,15 @@ bad() { echo "  FAIL  $1"; FAILED=1; }
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 export BIN WORK
 
-echo "== 0. юнит-оракулы T2 (парсер, машина состояний, список, строка, якорь, коммент)"
-$PY -m unittest bot.tests.test_parse bot.tests.test_session bot.tests.test_lastn bot.tests.test_line bot.tests.test_anchor bot.tests.test_comment > "$WORK/unit.log" 2>&1
+echo "== 0. юнит-оракулы T2 (парсер, машина состояний, список, строка, якорь, коммент) + T8 (формы, отзыв)"
+$PY -m unittest bot.tests.test_parse bot.tests.test_session bot.tests.test_lastn bot.tests.test_line bot.tests.test_anchor bot.tests.test_comment bot.tests.test_parse_forms bot.tests.test_undo > "$WORK/unit.log" 2>&1
 tail -1 "$WORK/unit.log" | grep -q '^OK' && ok "unittest: $(grep -E '^Ran ' "$WORK/unit.log") $(grep -oE '\[N1 sweep\].*|\[transitions\].*' "$WORK/unit.log" | tr '\n' ';')" || { bad "unittest"; tail -15 "$WORK/unit.log"; }
 
 echo "== 1. оракулы отдельно от писателей (греп импортов тестов T2)"
-V=$(grep -nE '^(from|import) ' bot/tests/test_parse.py bot/tests/test_session.py bot/tests/test_lastn.py bot/tests/test_line.py bot/tests/test_anchor.py bot/tests/test_comment.py | grep -vE 'import (os|re|sys|unittest|hashlib|uuid|json|shutil|tempfile|decimal|subprocess)' | grep -vE 'test_parse.py:.*import parse( |$)|test_session.py:.*import parse, session|test_lastn.py:.*import lastn|test_line.py:.*import line( |$)|test_anchor.py:.*import anchor|test_comment.py:.*import comment' | wc -l | tr -d ' ')
+V=$(grep -nE '^(from|import) ' bot/tests/test_parse.py bot/tests/test_session.py bot/tests/test_lastn.py bot/tests/test_line.py bot/tests/test_anchor.py bot/tests/test_comment.py bot/tests/test_parse_forms.py bot/tests/test_undo.py | grep -vE 'import (os|re|sys|unittest|hashlib|uuid|json|shutil|tempfile|decimal|subprocess)|from botrepo import' | grep -vE 'test_parse.py:.*import parse( |$)|test_session.py:.*import parse, session|test_lastn.py:.*import lastn|test_line.py:.*import line( |$)|test_anchor.py:.*import anchor|test_comment.py:.*import comment|test_parse_forms.py:.*import parse( |$)|test_undo.py:.*import (botrepo|yamlmini, poll)' | wc -l | tr -d ' ')
 echo "  посторонних импортов (писатель другого модуля в оракуле): $V"; [ "$V" = "0" ] && ok "оракулы не делят функций с писателями" || bad "оракул импортирует чужой писатель"
-echo "  литералы команд в коде T2: $(grep -cE '"/(start|stop|track|last|help|confirm)"|'"'"'/(start|stop|track|last|help|confirm)'"'" bot/parse.py bot/session.py bot/lastn.py bot/line.py bot/anchor.py bot/comment.py | awk -F: '{s+=$2} END{print s}')"
+TOKS=$($PY -c "import yamlmini;print('|'.join(sorted(set(c['token'].lstrip('/') for c in yamlmini.load_file('bot/kit/commands.yaml')['commands'] if c['token']))))")
+echo "  литералы команд в коде T2/T8 (токены — из реестра: $TOKS): $(grep -cE "\"/($TOKS)\"|'/($TOKS)'" bot/parse.py bot/session.py bot/lastn.py bot/line.py bot/anchor.py bot/comment.py bot/undo.py | awk -F: '{s+=$2} END{print s}')"
 
 echo "== 2. матрица мутаций ПАКЕТОМ (§5 пре-флайта): 16 мутаций, ожидание каждой печатается"
 $PY - <<'PY'

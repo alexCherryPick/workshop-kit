@@ -109,5 +109,19 @@ class ThinnessTests(unittest.TestCase):
             self.assertNotIn(word, body)
 
 
+
+class RawNetworkErrorTests(unittest.TestCase):
+    def test_raw_opener_errors_become_transport_error(self):
+        """Раунд 8 T8 (Codex B1): сырые ошибки сети/HTTP из открытия или чтения ответа — TransportError, не исключение
+        поставщика (иначе отправка ответа роняла поллер с застрявшим offset)."""
+        import http.client, socket
+        for exc in (TimeoutError("timed out"), ConnectionResetError("connection reset"), http.client.RemoteDisconnected("remote closed"),
+                    http.client.IncompleteRead(b"x"), socket.timeout("t"), OSError("io")):
+            def opener(url, data, timeout, _e=exc): raise _e
+            t = tg.Transport("123:token-value-here", 5, opener=opener)
+            with self.assertRaises(tg.TransportError) as cm:
+                t.send_message(1, "x")
+            self.assertNotIn("token-value-here", str(cm.exception))
+
 if __name__ == "__main__":
     unittest.main()

@@ -20,6 +20,7 @@
 """
 
 import os
+import re
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -28,9 +29,37 @@ sys.path.insert(0, os.path.join(_HERE, "kit"))
 import yamlmini, tg, parse as parse_mod, session as session_mod, lastn, line as line_mod, identity as identity_mod  # noqa: E402
 import secrets as secrets_mod, state_store as ss, commit as commit_mod, build_help  # noqa: E402
 import comment as comment_mod  # noqa: E402 — раскладка UUIDv7 одна (id контейнера при ленивом создании)
+import undo as undo_mod  # noqa: E402 — T8: отзыв своей строки / возврат (правило Т, выбор цели, чётность)
 
 HOLD_OUTCOMES = ("conflict_p1_unmet", "retries_exhausted", "run_refused", "tool_failure")
 RECORD_OUTCOMES = ("recorded", "recorded_with_warning", "session_opened", "session_closed_recorded")
+UNDO_OUTCOMES = ("retracted", "unretracted")   # T8: пишущие исходы без дневной строки (блок в спутник)
+SHORT_REPLY_MAX = 160                          # T8 (REQ-095): переспрос — одна строка не длиннее этого
+TG_TEXT_MAX = 4096                             # предел одного сообщения мессенджера (Bot API); длиннее — частями
+
+
+def _chunks(text, limit):
+    """Части ≤ limit символов, по границам строк, где возможно; без пустых частей."""
+    if len(text) <= limit:
+        return [text]
+    out, cur = [], ""
+    for line in text.split("\n"):
+        while len(line) > limit:
+            if cur:
+                out.append(cur); cur = ""
+            out.append(line[:limit]); line = line[limit:]
+        if cur and len(cur) + 1 + len(line) > limit:
+            out.append(cur); cur = line
+        else:
+            cur = (cur + "\n" + line) if cur else line
+    if cur:
+        out.append(cur)
+    return out
+def _one_line(text):
+    """Репертуар «одной строки» = границы str.splitlines() (LF, CR, CRLF, VT, FF, FS, GS, RS, NEL, LS, PS) — тот же предикат,
+    которым однострочность и проверяется (раунд 7 W1, раунд 8 W1: ручной список расходился с предикатом); серии границ →
+    один пробел; хранимые байты не трогаются."""
+    return " ".join(part for part in text.splitlines() if part != "") if text.splitlines() else text
 
 
 class Ctx(object):
@@ -51,10 +80,21 @@ class Ctx(object):
         self.people_path = os.path.join(root, ".workshop", "people.yaml")
 
     # ---------------------------------------------------------------- ввод-вывод
-    def say(self, chat_id, text, reply_to=None):
+    def say(self, chat_id, text, reply_to=None, reply_markup=None):
+        """Ответ в чат (раунд 7 Fable, B2): текст длиннее предела мессенджера режется на части по строкам; недоставленный
+        ответ (бот заблокирован, чат недоступен, сеть) НЕ становится сбоем инструмента — исход update стоит, offset
+        продвигается, отказ пишется в трассу и журнал (иначе один заблокировавший бота человек останавливает всех)."""
         self.outgoing.append((chat_id, text))
-        self.transport.send_message(chat_id, text, reply_to_message_id=reply_to)
-        self.trace.add("send", "chat:%s" % chat_id, 0)
+        parts = _chunks(text, TG_TEXT_MAX)
+        for k, part in enumerate(parts):
+            try:
+                self.transport.send_message(chat_id, part, reply_to_message_id=reply_to if k == 0 else None,
+                                            reply_markup=reply_markup if k == len(parts) - 1 else None)
+                self.trace.add("send", "chat:%s" % chat_id, 0)
+            except tg.TransportError as e:
+                self.trace.add("send_failed", "chat:%s" % chat_id, 0, str(e)[:120])
+                self.log.append("ответ недоставлен %s: %s" % (chat_id, e))
+                return
 
     def alarm(self, text, people):
         for t in identity_mod.alarm_targets(people, (self.cfg.get("watchdog") or {}).get("alarm_to", "admins")):
@@ -67,7 +107,17 @@ class Ctx(object):
         return build_help.render_short(self.commands_doc)
 
     def full_help(self):
-        return build_help.render_help(self.commands_doc)
+        return build_help.render_help(self.commands_doc, self.forms_doc)
+
+    @property
+    def forms_doc(self):
+        if not hasattr(self, "_forms_doc"):
+            self._forms_doc = build_help.load_forms(os.path.join(_HERE, "kit", "duration-forms.yaml"))
+        return self._forms_doc
+
+    def help_hint(self):
+        """Однострочный указатель на справку (T8, REQ-095): токен позиции справки — из реестра."""
+        return "%s — команды и примеры" % build_help.help_token(self.commands_doc)
 
 
 def load_people(ctx):
@@ -81,6 +131,36 @@ def token_of(ctx, pos_id):
 # -------------------------------------------------------------------- ответы (T3 — тексты)
 def _states_line():
     return "принято мессенджером ✓ · закоммичено ✓ · запушено ✓"
+
+
+def _short(parts, tail=""):
+    """Переспрос — одна строка ≤ SHORT_REPLY_MAX (T8, REQ-095). parts — строка либо список сегментов: str
+    (фиксированный) или (str, True) (переменный: причина/правило/заголовок). Бюджет обрезания — ТОЛЬКО на
+    переменных сегментах (раунд 1 №2, раунд 2 W2: фиксированные части ПОСЛЕ переменной — время начала,
+    подсказка закрытия, «поправь и пришли снова» — обязаны уцелеть), хвост-указатель на справку цел;
+    обрезанное помечается «…»; LF → пробел."""
+    if isinstance(parts, str):
+        parts = [parts]
+    segs = [(p[0], True) if isinstance(p, tuple) else (p, False) for p in parts]
+    segs = [(_one_line(t), v) for t, v in segs]
+    tail = _one_line(tail)
+    room = SHORT_REPLY_MAX - (len(tail) + 1 if tail else 0) - sum(len(t) for t, v in segs if not v)
+    if room < 0:
+        # контракт шаблона (раунд 3, R2): фиксированные части + хвост ОБЯЗАНЫ умещаться — это ошибка автора
+        # шаблона, а не входа; фиксированный текст никогда не режется
+        raise ValueError("шаблон переспроса длиннее SHORT_REPLY_MAX на %d: %r" % (-room, "".join(t for t, _ in segs)))
+    n_var = sum(1 for _, v in segs if v)
+    out = []
+    for t, v in segs:
+        if not v:
+            out.append(t); continue
+        share = room // n_var
+        if len(t) > share:
+            t = (t[:share - 1] + "…") if share >= 1 else ""     # нулевой бюджет — переменная опускается, без «…»
+        room -= len(t); n_var -= 1
+        out.append(t)
+    body = "".join(out)
+    return (body + " " + tail) if tail else body
 
 
 def reply_text(ctx, outcome, decision, parsed, extra=None):
@@ -102,16 +182,23 @@ def reply_text(ctx, outcome, decision, parsed, extra=None):
         if extra.get("rule"):
             t += "\nпредупреждение валидатора: %s" % extra["rule"]
         return t + extra.get("note", "")
+    # --- переспросы (T8, REQ-095): ОДНА строка ≤ SHORT_REPLY_MAX — причина + указатель на справку, без перечня команд
     if outcome == "reask_unparsed":
-        return "не понял: %s\n\n%s" % (r.get("reason", ""), ctx.short_help())
+        return _short(["не понял (", (r.get("reason", ""), True), ")."], ctx.help_hint())
     if outcome == "reask_invalid":
-        return "не записал: валидатор отверг строку — правило %s. Поправь и пришли снова." % extra.get("rule", r.get("rule", ""))
+        return _short(["не записал: валидатор отверг строку — правило ", (extra.get("rule", r.get("rule", "")) or "", True), ". Поправь и пришли снова."], ctx.help_hint())
     if outcome == "reask_correction":
-        return "исправление уже записанных часов делается в приложении, не через бота (И5). В табель ничего не записано."
+        return _short("часы на месте бот не правит: отозвать строку — %s, поправить — в приложении. Не записано." % token_of(ctx, "undo"), ctx.help_hint())
     if outcome == "reask_start_already_open":
-        return "учёт уже открыт: «%s» с %s. Закрой командой %s" % (r.get("title"), r.get("started_at_local"), token_of(ctx, "stop"))
+        return _short(["учёт уже открыт: «", (r.get("title") or "", True), "» с %s. Закрыть — %s." % (r.get("started_at_local"), token_of(ctx, "stop"))], ctx.help_hint())
     if outcome == "reask_stop_without_open":
-        return "открытого учёта нет.\n\n%s" % ctx.short_help()
+        return _short("открытого учёта нет.", ctx.help_hint())
+    if outcome == "reask_undo_not_found":
+        return _short(["нечего отзывать (", (r.get("reason", ""), True), ")."], ctx.help_hint())
+    if outcome == "retracted":
+        return "отозвано: %s · %s ч · «%s» — %s" % (r.get("date", ""), r.get("hours", ""), r.get("title", ""), _states_line())
+    if outcome == "unretracted":
+        return "возвращено в учёт: %s · %s ч · «%s» — %s" % (r.get("date", ""), r.get("hours", ""), r.get("title", ""), _states_line())
     if outcome == "rejected_unknown_sender":
         return "тебя нет в карте людей (твой id в мессенджере: %s) — попроси администратора добавить тебя." % extra.get("from_id")
     if outcome == "rejected_secret":
@@ -120,9 +207,11 @@ def reply_text(ctx, outcome, decision, parsed, extra=None):
         return ctx.full_help()
     if outcome == "last_list_given":
         titles = r.get("titles") or []
+        marks = r.get("retracted") or []
         if not titles:
             return "записей пока нет."
-        return "последние заголовки:\n" + "\n".join("%d. %s" % (i + 1, t) for i, t in enumerate(titles)) + "\nповторить: %s <N>" % token_of(ctx, "start_n")
+        rows = ["%d. %s%s" % (i + 1, t, " — отозвано" if i < len(marks) and marks[i] else "") for i, t in enumerate(titles)]
+        return "последние заголовки:\n" + "\n".join(rows) + "\nповторить: %s <N>; отозвать/вернуть: %s <N>" % (token_of(ctx, "start_n"), token_of(ctx, "undo"))
     return outcome
 
 
@@ -179,6 +268,15 @@ def run_once(ctx):
     # прошлого прогона (исчерпание ретраев) offset не подтверждает — его update придут снова и лягут по правилу Т
     commit_mod.git(root, ["fetch", "-q", "origin"], ctx.trace, "fetch")
     branch = commit_mod.git(root, ["rev-parse", "--abbrev-ref", "HEAD"])[1].strip()
+    # чтения свежие (раунд 9 T8, Fable-2 B1: чужой отзыв невидим списку до ближайшей записи): если локальная копия не
+    # ушла вперёд origin (нет незапушенного коммита), она fast-forward'ится до origin ДО обработки батча; незапушенный
+    # коммит (исчерпание ретраев) не трогается — его сольёт reconcile перед записью
+    if commit_mod.git(root, ["rev-parse", "--verify", "-q", "origin/%s" % branch], check=False)[0] == 0 and \
+            commit_mod.git(root, ["merge-base", "--is-ancestor", "HEAD", "origin/%s" % branch], check=False)[0] == 0:
+        commit_mod.git(root, ["merge", "-q", "--ff-only", "origin/%s" % branch], ctx.trace, "ff", check=False)
+        state = ss.read_state(root)
+        sessions = ss.read_sessions(root)
+        people, people_doc = load_people(ctx)
     auth = ss.authority_offset(root, "origin/%s" % branch)
     if auth is None and commit_mod.git(root, ["rev-parse", "--verify", "-q", "origin/%s" % branch], check=False)[0] == 0:
         auth = 0                          # ветка в origin есть, файла состояния в ней нет — подтверждено ничего
@@ -302,8 +400,25 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
         if addressed:
             ctx.say(chat_id, reply_text(ctx, "rejected_unknown_sender", None, parsed, {"from_id": parsed["from_id"]}), reply_to)
         return "rejected_unknown_sender", state, sessions, people_doc, people, False
+    # T8 (REQ-095) ГРУППА: реплика не адресована боту, не команда и не разобрана → это не вход бота
+    # (исход 9 non_input, запись в трассу, ответа нет). С privacy-mode такие update не приходят вовсе;
+    # при выключенном (бот-админ — вне поддержки) правило делает поведение одинаковым.
+    if parsed["chat_type"] != "private" and parsed["kind"] in ("unparsed", "correction") and not parsed.get("addressed") and parsed["text"][:1] != b"/":
+        ctx.trace.add("non_input", "update:%s" % uid, 0, "группа: не адресовано боту (%s)" % parsed.get("reason"))
+        return "non_input", state, sessions, people_doc, people, False
     if parsed["kind"] == "unparsed":
         ctx.say(chat_id, reply_text(ctx, "reask_unparsed", {"reply": {"reason": parsed.get("reason")}}, parsed), reply_to)
+        return "reask_unparsed", state, sessions, people_doc, people, False
+    if parsed["kind"] == "correction":   # T8: исход 6 получил продюсера — маркеры исправления реестра форм
+        ctx.say(chat_id, reply_text(ctx, "reask_correction", {"reply": {"reason": parsed.get("reason")}}, parsed), reply_to)
+        return "reask_correction", state, sessions, people_doc, people, False
+    # --- гейты кнопки — ДО ЛЮБОЙ диспетчеризации (раунд 7 Fable, B1: отзыв кнопкой миновал гейт машины состояний и
+    #     падал в TOOL_FAILURE с застрявшим offset); П-6: у нажатия нет времени; callback_allowed — реестр команд
+    if parsed.get("is_callback") and parsed.get("time_bearing"):
+        ctx.say(chat_id, reply_text(ctx, "reask_unparsed", {"reply": {"reason": "callback_time_bearing"}}, parsed), reply_to)
+        return "reask_unparsed", state, sessions, people_doc, people, False
+    if parsed.get("is_callback") and not parsed.get("callback_allowed"):
+        ctx.say(chat_id, reply_text(ctx, "reask_unparsed", {"reply": {"reason": "callback_not_allowed"}}, parsed), reply_to)
         return "reask_unparsed", state, sessions, people_doc, people, False
     person = res["person"]
     new_people_doc = people_doc
@@ -326,18 +441,25 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
                 state = ss.record_secret_rejection(state, secrets_mod.rejection_record(scan_text, parsed["from_id"], parsed.get("message_date") or 0))
                 ctx.say(chat_id, reply_text(ctx, "rejected_secret", None, parsed, {"names": ", ".join("%s (%s)" % (f["name"], f.get("describe", "")) for f in findings)}), reply_to)
                 return "rejected_secret", state, sessions, people_doc, people, False
+    # --- отзыв своей строки (T8): собственный пишущий путь без дневной строки
+    if parsed["position"] == "undo":
+        return _handle_undo(ctx, parsed, uid, person, res, state, sessions, people_doc, people, result, reply_to, note)
     # --- машина состояний (T2)
     handle = person["handle"]
     tz = person["timezone"]
     last_titles = None
     if parsed["position"] in ("last", "start_n"):
-        n = parsed.get("n") or int(ctx.cfg.get("last_default_n", 5))
-        last_titles = lastn.titles(root, handle, max(n, 1) if parsed["position"] == "last" else 10 ** 6, ctx.cfg.get("namespace"))
+        n = min(parsed.get("n") or int(ctx.cfg.get("last_default_n", 5)), int(ctx.cfg.get("last_max_n", 50)))   # раунд 7 B2: предел списка
+        # список для повтора по N — ТОТ ЖЕ предел last_max_n, что у показа: номер, которого человек увидеть не мог,
+        # не адресует строку (раунд 8 T8, Fable W1)
+        last_titles = lastn.titles(root, handle, max(n, 1) if parsed["position"] == "last" else int(ctx.cfg.get("last_max_n", 50)), ctx.cfg.get("namespace"))
     d = session_mod.decide(sessions["sessions"].get(handle), parsed, {"handle": handle, "timezone": tz}, ctx.cfg, last_titles, tail_of=ctx.registry.tail_of)
     outcome = d["outcome"]
     if outcome not in RECORD_OUTCOMES:
         if outcome == "last_list_given":
-            ctx.transport.send_message(chat_id, reply_text(ctx, outcome, d, parsed), reply_markup=last_keyboard(ctx, d["reply"].get("titles") or []), reply_to_message_id=reply_to)
+            # T8: заголовки, чья новейшая строка отозвана, помечаются в ответе (текст заголовка не меняется)
+            d["reply"]["retracted"] = undo_mod.titles_state(root, handle, d["reply"].get("titles") or [], ctx.cfg.get("namespace"))
+            ctx.say(chat_id, reply_text(ctx, outcome, d, parsed), reply_to, reply_markup=last_keyboard(ctx, d["reply"].get("titles") or []))
             ctx.outgoing.append((chat_id, "last_list"))
         elif outcome == "identical_repeat":
             ctx.trace.add("identical", "update:%s" % uid, 0, d["reply"].get("reason"))
@@ -366,7 +488,7 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
         sessions = ss.read_sessions(root)
         _snapshot_base(ctx, root, state)
         if parsed["position"] in ("last", "start_n"):
-            last_titles = lastn.titles(root, handle, 10 ** 6, ctx.cfg.get("namespace"))
+            last_titles = lastn.titles(root, handle, int(ctx.cfg.get("last_max_n", 50)), ctx.cfg.get("namespace"))
         d = session_mod.decide(sessions["sessions"].get(handle), parsed, {"handle": handle, "timezone": tz}, ctx.cfg, last_titles, tail_of=ctx.registry.tail_of)
         outcome = d["outcome"]
         if outcome not in RECORD_OUTCOMES:   # например, чужое закрытие приехало — наше закрытие стало переспросом
@@ -475,6 +597,124 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
     return "conflict_p1_unmet", ss.read_state(root), ss.read_sessions(root), people_doc, people, True
 
 
+def _handle_undo(ctx, parsed, uid, person, res, state, sessions, people_doc, people, result, reply_to, note):
+    """T8 — отзыв/возврат своей строки: правило Т → выбор цели → reconcile → пересчёт цели при чужой
+    правке спутника/контейнера → блок(и) в спутник → check-pair → ОДИН коммит (спутник + состояние +
+    карта людей при самозаписи) → push → ответ. Дневная строка не пишется и не правится."""
+    root = ctx.root
+    chat_id = parsed["chat_id"]
+    handle = person["handle"]
+    ns = ctx.cfg.get("namespace")
+    ident = parsed["identity"]
+    # 1. ПРАВИЛО Т — до выбора цели (ревью #2): повтор доставки после незапушенного/запушенного коммита
+    if undo_mod.already_applied(root, handle, ident, ns):
+        ctx.trace.add("identical", "update:%s" % uid, 0, "правило Т для отзыва: коммент этого сообщения уже в спутнике")
+        return "identical_repeat", state, sessions, people_doc, people, False
+    # 2. цель — один ключ порядка (lastn); по N — заголовок последнего списка
+    n = parsed.get("n")
+    last_titles = lastn.titles(root, handle, int(ctx.cfg.get("last_max_n", 50)), ns) if n is not None else None   # предел = предел показа (раунд 8, W1)
+    kind, target = undo_mod.select_target(root, handle, n, last_titles, ns)
+    if kind == "reask":
+        ctx.say(chat_id, reply_text(ctx, "reask_undo_not_found", {"reply": {"reason": target}}, parsed), reply_to)
+        return "reask_undo_not_found", state, sessions, people_doc, people, False
+    snap = undo_mod.snapshot(root, handle, ns)   # ВСЕ свои контейнеры и спутники (раунд 1, №7)
+    # 3. pull непосредственно перед коммитом; чужая правка файлов состояния — перечитать (как в _handle)
+    v = commit_mod.reconcile(root, ctx.trace, author=ctx.cfg.get("bot_handle") or "workshop_bot")
+    if v != "clean":
+        if not v.startswith("p1_unmet:"):
+            commit_mod.abort_merge(root, ctx.trace)
+        ctx.say(chat_id, "конфликт при слиянии перед записью — отзыв отложен, сообщение не потеряно", reply_to)
+        ctx.alarm("конфликт слияния перед отзывом: %s" % v, people)
+        return "conflict_p1_unmet", state, sessions, people_doc, people, True
+    ctx.trace.add("pull", "reconcile", 0)
+    if _read_bytes(root, ss.SESSIONS_PATH) != ctx.base["sessions"] or _read_bytes(root, ss.STATE_PATH) != ctx.base["state"]:
+        ctx.trace.add("reread", "state files", 0, "односторонняя чужая правка приехала в reconcile — перечитано")
+        state = _merge_state_after_remote_change(ctx.base["state_doc"], state, ss.read_state(root))
+        sessions = ss.read_sessions(root)
+        _snapshot_base(ctx, root, state)
+    # 4. чужая правка своих файлов приехала в reconcile → цель проверяется ПО ЯКОРЮ (раунд 1, №4): состояние
+    #    цели изменилось (отозвана/возвращена/исчезла) — исход 23 target_changed, записи нет; то же — при
+    #    повторе доставки, чей коммент приехал (правило Т)
+    if undo_mod.snapshot(root, handle, ns) != snap:
+        ctx.trace.add("reread", "own files", 0, "контейнеры/спутники изменились в reconcile — цель отзыва проверена по якорю")
+        if undo_mod.already_applied(root, handle, ident, ns):
+            return "identical_repeat", state, sessions, people_doc, people, False
+        found, retracted, rets = undo_mod.anchor_state(root, handle, target["anchor"], ns)
+        # состояние цели — якорь, отозванность и МНОЖЕСТВО действующих отзывов (раунд 5, W4: законная перестановка
+        # блоков спутника состояние не меняет; порядок блоков не семантичен — гл. 01 §9 п.3)
+        if not found or retracted != target["retracted"] or set(rets) != set(target["retractions"]):
+            ctx.say(chat_id, reply_text(ctx, "reask_undo_not_found", {"reply": {"reason": "target_changed"}}, parsed), reply_to)
+            return "reask_undo_not_found", state, sessions, people_doc, people, False
+    people, people_doc = load_people(ctx)
+    new_people_doc = people_doc
+    if res["kind"] == "pending_new":
+        res = identity_mod.resolve(people, parsed["from_id"], parsed.get("from_name"), ctx.cfg)
+        person = res["person"]; handle = person["handle"]
+        if res["kind"] == "pending_new":
+            _scrub_pending_name(ctx, res["new_entry"])
+            new_people_doc = identity_mod.append_entry(people_doc, res["new_entry"])
+    # 5. блок(и) в спутник — тело = ПОЛНЫЕ байты сообщения (ревью #1)
+    outcome, blocks = undo_mod.build_blocks(target, ident, parsed["message_date"], parsed["text"], handle)
+    host_rel = os.path.relpath(target["path"], root)
+    srel = os.path.relpath(undo_mod.sibling_path(target["path"]), root)
+    spath = os.path.join(root, srel)
+    sb = _read_bytes(root, srel)
+    if not sb:
+        container_id = commit_mod.container_id_of(_read_bytes(root, host_rel))
+        sb = (comment_mod.comments_of_header(container_id) + "\n\n").encode("utf-8")
+    elif not sb.endswith(b"\n"):
+        sb += b"\n"
+    for _p, block, _cid in blocks:
+        sb += block
+    with open(spath, "wb") as fh:
+        fh.write(sb)
+    ctx.trace.add("write", srel, 0, "%s: %d блок(ов) %s" % (outcome, len(blocks), target["anchor"]))
+    paths = [srel]
+    args = ["check-pair", os.path.join(root, host_rel), "--comments", spath, "--path", host_rel, "--comments-path", srel, "--git-root", root, "--no-config"]
+    rc, rep = _run_validator(ctx.validator_bin, args)
+    ctx.trace.add("check_pair", srel, rc)
+    oc, rl = line_mod.rc_to_outcome(rc, rep)
+    rule = rl if oc == "recorded_with_warning" else None
+    if oc not in ("recorded", "recorded_with_warning"):
+        _revert(root, paths, ctx)
+        if oc == "reask_invalid":
+            ctx.say(chat_id, reply_text(ctx, "reask_invalid", None, parsed, {"rule": rl}), reply_to)
+            return "reask_invalid", state, sessions, people_doc, people, False
+        ctx.alarm("валидатор (check_pair, отзыв): %s rc=%d на %s" % (oc, rc, srel), people)
+        return oc, state, sessions, people_doc, people, True
+    # 6. состояние, карта людей, offset — тем же коммитом
+    if new_people_doc is not people_doc:
+        with open(ctx.people_path, "wb") as fh:
+            fh.write(yamlmini.dumps(new_people_doc).encode("utf-8"))
+        paths.append(".workshop/people.yaml"); people_doc = new_people_doc; people = identity_mod.people_list(people_doc)
+        state = ss.record_self_registration(state, handle, parsed.get("message_date") or 0)
+    state = ss.set_offset(state, uid + 1)
+    ss.write_state(root, state); paths.append(ss.STATE_PATH)
+    env = dict(os.environ)
+    if parsed.get("confirmed"):
+        inner = parsed.get("confirm_inner_text", parsed["text"])
+        env["WORKSHOP_SECRET_CONFIRMED"] = ",".join(sorted(f["name"] for f in secrets_mod.scan(ctx.patterns, inner))) or "-"
+    sha = commit_mod.commit_paths(root, sorted(set(paths)), "workshop-bot: %s (update %s)" % (outcome, uid), ctx.cfg.get("bot_handle"), ctx.cfg.get("bot_handle") + "@bot.invalid", ctx.trace, env=env)
+    _snapshot_base(ctx, root, state)
+    result["commits"].append((outcome, sha, "local"))
+    verdict = commit_mod.push_with_retry(root, ctx.trace, ctx.cfg["retry"]["push_max_attempts"], ctx.cfg["retry"]["push_backoff_seconds"], lambda: _reconcile_for_retry(ctx, root, people), ctx.sleeper)
+    reply = {"reply": {"date": target["date"], "hours": target["hours"], "title": target["title"]}}
+    if verdict[0] == "pushed":
+        ctx.say(chat_id, reply_text(ctx, outcome, reply, parsed, {"rule": rule, "note": note}) + (("\nпредупреждение валидатора: %s" % rule) if rule else ""), reply_to)
+        result["commits"][-1] = (outcome, sha, "pushed")
+        return outcome, state, sessions, people_doc, people, False
+    if verdict[0] == "exhausted":
+        ctx.say(chat_id, "отзыв закоммичен, но не запушен после %d попыток — повторю в следующем прогоне, сообщение не потеряно" % verdict[1], reply_to)
+        ctx.alarm("исчерпан предел ретраев push (%d попыток, бэкофф суммарно %d с)" % (verdict[1], verdict[2]), people)
+        return "retries_exhausted", ss.read_state(root), ss.read_sessions(root), people_doc, people, True
+    branch = commit_mod.git(root, ["rev-parse", "--abbrev-ref", "HEAD"])[1].strip()
+    commit_mod.git(root, ["reset", "-q", "--hard", "origin/%s" % branch], ctx.trace, "reset-to-origin")
+    ctx.say(chat_id, "конфликт при слиянии — отзыв отложен, ветка не тронута, сообщение не потеряно", reply_to)
+    ctx.alarm("громкий отказ при reconcile (отзыв): %s" % verdict[2], people)
+    people, people_doc = load_people(ctx)
+    return "conflict_p1_unmet", ss.read_state(root), ss.read_sessions(root), people_doc, people, True
+
+
 def _scrub_pending_name(ctx, entry):
     """Второй источник байтов в репозиторий — имя из мессенджера (T4 §3(а)): сканируется тем же реестром;
     находка → в карту идёт временный handle вместо имени (значение не печатается и не пишется)."""
@@ -501,24 +741,51 @@ def _revert(root, paths, ctx):
 
 
 # -------------------------------------------------------------------- вход обёртки
+def _emergency_alarm(transport, cfg, people, text):
+    """Аварийный алярм без Ctx (раунд 4 W1, раунд 5 W1): адресаты — по карте людей (прочитана заранее) либо по явному
+    watchdog.alarm_to; нужен только транспорт. Контур ЗАМКНУТ относительно собственных ошибок: порченая секция
+    watchdog (строка/список/число) → адресаты «admins»; любой сбой подготовки или отправки печатается, наружу не выходит."""
+    try:
+        wd = cfg.get("watchdog") if isinstance(cfg, dict) else None
+        alarm_to = wd.get("alarm_to", "admins") if isinstance(wd, dict) else "admins"
+        try:
+            targets = identity_mod.alarm_targets(people if isinstance(people, list) else [], alarm_to)
+        except Exception as e:
+            sys.stdout.write("alarm: адресаты не разрешены (%s) — по карте admins\n" % e)
+            targets = identity_mod.alarm_targets(people if isinstance(people, list) else [], "admins")
+        for t in targets:
+            try:
+                transport.send_message(t, "⚠ сторож бота: " + text)
+            except Exception as e:
+                sys.stdout.write("alarm недоставлен %s: %s\n" % (t, e))
+    except Exception as e:
+        sys.stdout.write("alarm: сбой аварийного контура: %s\n" % e)
+
+
 def main():
+    """Один контур фатальной ошибки (раунд 2 W3, раунд 3 W1/R3, раунд 4 W1): ЛЮБОЕ исключение на любом шаге — конфиг,
+    транспорт, getMe, карта, прогон — печатает TOOL_FAILURE <тип>: <текст>, rc=10, offset не продвигается; алярм уходит,
+    как только есть транспорт и конфиг (карта людей читается ДО getMe и прогона; без карты — явный адресат)."""
     root = os.getcwd()
-    cfg = yamlmini.load_file(os.path.join(root, ".workshop", "bot.yaml"))
-    token = os.environ.get("WORKSHOP_TG_BOT_TOKEN", "")
-    validator_bin = os.environ.get("WORKSHOP_VALIDATOR") or os.path.join(root, ".workshop-bin", "workshop-validator")
-    tr = cfg.get("transport") or {}
-    transport = tg.Transport(token, tr.get("http_timeout_seconds"))
+    cfg = transport = None
+    people = []
     try:
+        cfg = yamlmini.load_file(os.path.join(root, ".workshop", "bot.yaml"))
+        token = os.environ.get("WORKSHOP_TG_BOT_TOKEN", "")
+        validator_bin = os.environ.get("WORKSHOP_VALIDATOR") or os.path.join(root, ".workshop-bin", "workshop-validator")
+        tr = cfg.get("transport") or {}
+        transport = tg.Transport(token, tr.get("http_timeout_seconds"))
+        try:
+            people = identity_mod.people_list(yamlmini.load_file(os.path.join(root, ".workshop", "people.yaml")))
+        except Exception:
+            people = []           # карты нет/порчена — алярм пойдёт по явному адресату, если он есть
         me = transport.call("getMe", {})
-        username = me.get("username")
-    except tg.TransportError as e:
-        sys.stdout.write("TOOL_FAILURE getMe: %s\n" % e)
-        return 10
-    ctx = Ctx(root, transport, cfg, validator_bin, bot_username=username)
-    try:
+        ctx = Ctx(root, transport, cfg, validator_bin, bot_username=me.get("username"))
         result = run_once(ctx)
-    except (ss.StateError, commit_mod.GitError, yamlmini.YamlError, OSError, ValueError) as e:  # ValueError — форма карты людей
-        sys.stdout.write("TOOL_FAILURE %s\n" % e)
+    except Exception as e:
+        sys.stdout.write("TOOL_FAILURE %s: %s\n" % (type(e).__name__, e))
+        if transport is not None and cfg is not None:
+            _emergency_alarm(transport, cfg, people, "сбой поллера (%s): %s" % (type(e).__name__, str(e)[:200]))
         return 10
     sys.stdout.write("\n".join(ctx.trace.lines()) + "\n")
     sys.stdout.write("processed=%d outcomes=%s held=%s\n" % (result["processed"], result["outcomes"], result["held"]))

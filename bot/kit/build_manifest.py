@@ -47,7 +47,7 @@ def _layout(rel):
     if parts[0] != "kit":
         return None
     if len(parts) == 2:
-        if name in ("commands.yaml", "secret-patterns.yaml", "people_handles.py"):
+        if name in ("commands.yaml", "secret-patterns.yaml", "people_handles.py", "duration-forms.yaml"):   # T8: реестр форм — читается парсером на прогоне
             return ("code", ".workshop/bot/kit/" + name, "0644")
         if name in ("install.py", "install-steps.yaml", "validator-release.yaml", "build_help.py"):
             # РАНТАЙМ комплекта у заказчика: обёртки поллера и сторожа зовут `install.py validator`

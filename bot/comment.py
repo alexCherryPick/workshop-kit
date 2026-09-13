@@ -22,9 +22,12 @@ import uuid
 COMMENT_DOMAIN = "workshop-d09-comment-v1"
 MIDDLE_DOT = "·"
 AUTHOR_TOKEN_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
-HEADER_RE = re.compile(r"^### (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z) · ([A-Za-z0-9._-]{1,64}) <!--c:([0-9a-f-]{36}) about:t:([0-9a-f]{8})-->$")
+# ОДНА грамматика токена времени ядра 02.2.1 для всех читателей/писателей бота (lastn, undo, comment): доли секунд —
+# любое число цифр, как у ядра и валидатора (раунд 10 A W1: три грамматики одного токена расходились)
+TS_TOKEN = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z"
+HEADER_RE = re.compile(r"^### (%s) · ([A-Za-z0-9._-]{1,64}) <!--c:([0-9a-f-]{36}) (about:t:|retracts:t:|retracts:)([0-9a-f-]{8,36})-->$" % TS_TOKEN)
 
-__all__ = ["COMMENT_DOMAIN", "comment_id", "timestamp_z", "header_line", "build", "comments_of_header"]
+__all__ = ["COMMENT_DOMAIN", "TS_TOKEN", "comment_id", "timestamp_z", "header_line", "build", "comments_of_header"]
 
 
 def uuid7_random(now_ms=None, entropy=None):
@@ -62,22 +65,32 @@ def timestamp_z(message_date):
     return datetime.datetime.fromtimestamp(int(message_date), tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def header_line(message_date, author_handle, cid, anchor8):
+LINK_ABOUT = "about:t:"          # коммент бота к собственной строке (§1Г)
+LINK_RETRACT_LINE = "retracts:t:"  # T8: отзыв дневной строки по якорю (ядро 04.5, амендмент «6а»)
+LINK_RETRACT_COMMENT = "retracts:"  # T8: отзыв коммента-отзыва по его id (возврат строки в учёт)
+LINK_TOKENS = (LINK_ABOUT, LINK_RETRACT_LINE, LINK_RETRACT_COMMENT)
+
+
+def header_line(message_date, author_handle, cid, target, link=LINK_ABOUT):
+    """Заголовок 04.3.1: ровно ОДИН связочный токен; target — якорь строки (about:t:/retracts:t:)
+    либо id коммента (retracts:)."""
     if not AUTHOR_TOKEN_RE.match(author_handle):
         raise ValueError("автор не по грамматике 04.3.1: %r" % author_handle)
-    return "### %s %s %s <!--c:%s about:t:%s-->" % (timestamp_z(message_date), MIDDLE_DOT, author_handle, cid, anchor8)
+    if link not in LINK_TOKENS:
+        raise ValueError("связочный токен вне перечня писателя: %r" % link)
+    return "### %s %s %s <!--c:%s %s%s-->" % (timestamp_z(message_date), MIDDLE_DOT, author_handle, cid, link, target)
 
 
-def build(ident, message_date, body_bytes, author_handle, anchor8, k=0):
+def build(ident, message_date, body_bytes, author_handle, anchor8, k=0, link=LINK_ABOUT):
     """Вернуть (id, заголовочная строка, блок-байты) либо None, если тела нет (коммента нет).
     Блок = заголовок + LF + тело + LF (ровно один финальный LF; если тело уже кончается LF —
-    второй не добавляется, но тело не режется)."""
+    второй не добавляется, но тело не режется). link — связочный токен (T8: отзыв/возврат)."""
     if body_bytes is None or len(body_bytes) == 0:
         return None
     if not isinstance(body_bytes, (bytes, bytearray)):
         raise TypeError("тело коммента — байты, не строка")
     cid = comment_id(ident, message_date, k)
-    head = header_line(message_date, author_handle, cid, anchor8)
+    head = header_line(message_date, author_handle, cid, anchor8, link)
     block = head.encode("utf-8") + b"\n" + bytes(body_bytes)
     if not block.endswith(b"\n"):
         block += b"\n"

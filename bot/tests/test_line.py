@@ -87,5 +87,13 @@ class LineTests(unittest.TestCase):
         self.assertEqual(line.rc_to_outcome(3, "")[0], "run_refused")
 
 
+
+    def test_first_rule_prefers_form_address_over_code_inside_it(self):
+        """Раунд 1, №8: «§04.3.4 №ERROR-4» → человеку уходит адрес формы, не слово ERROR."""
+        self.assertEqual(line._first_rule("ERROR: §04.3.4 №ERROR-4 — дубль id коммента"), "§04.3.4 №ERROR-4")
+        self.assertEqual(line._first_rule("ERROR: HOURS_RANGE hours 0.00"), "HOURS_RANGE")
+        self.assertEqual(line._first_rule("WARNING: W-ID-VERSION container id"), "W-ID-VERSION")
+        self.assertEqual(line.rc_to_outcome(2, "precondition ok\nERROR: §04.3.4 №ERROR-4 x"), ("reask_invalid", "§04.3.4 №ERROR-4"))
+
 if __name__ == "__main__":
     unittest.main()

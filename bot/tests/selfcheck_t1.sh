@@ -44,10 +44,10 @@ UT=$($PY -m unittest discover -s bot/tests 2>&1 | tail -3)
 echo "$UT" | sed 's/^/  /'
 echo "$UT" | grep -q '^OK' && ok "unittest: OK" || bad "unittest: есть провалы"
 
-echo "== 2. перечень исходов: ровно 20, пять полей, признак коммента, не коды валидатора"
+echo "== 2. перечень исходов: ровно 23 (T8: +3), пять полей, признак коммента, не коды валидатора"
 "$BIN" --dump-identifiers --kind code < /dev/null > "$WORK/codes.txt"
 echo "  дамп кодов валидатора: $(wc -l < "$WORK/codes.txt" | tr -d ' ') строк"
-$PY - "$TW" "$WORK/codes.txt" <<'EOF' && ok "исходы: 20 позиций × 5 полей, признак у всех, ∩ дамп = ∅" || bad "исходы: см. выше"
+$PY - "$TW" "$WORK/codes.txt" <<'EOF' && ok "исходы: 23 позиции × 5 полей, признак у всех, ∩ дамп = ∅" || bad "исходы: см. выше"
 import sys, yamlmini
 tw = yamlmini.load_file(sys.argv[1]); codes = set(open(sys.argv[2]).read().split())
 outs = tw["outcomes"]; ids = [o["id"] for o in outs]
@@ -55,9 +55,9 @@ print("  исходов в реестре: %d" % len(outs))
 must = ["identical_repeat","recorded_with_warning","run_refused","tool_failure","non_input","session_opened",
         "session_closed_recorded","reask_start_already_open","reask_stop_without_open","session_stale","help_given","last_list_given"]
 bad = []
-if len(outs) != 20: bad.append("число исходов %d != 20" % len(outs))
-if len(set(ids)) != 20: bad.append("дубли id")
-if sorted(o["ordinal"] for o in outs) != list(range(1, 21)): bad.append("ординалы не 1..20")
+if len(outs) != 23: bad.append("число исходов %d != 23" % len(outs))
+if len(set(ids)) != 23: bad.append("дубли id")
+if sorted(o["ordinal"] for o in outs) != list(range(1, 24)): bad.append("ординалы не 1..23")
 for m in must:
     if m not in ids: bad.append("нет обязательного исхода %s" % m)
 for o in outs:
@@ -78,7 +78,8 @@ EOF
 echo "== 3. таблица переходов: декартово произведение {closed, open} × входы реестра"
 $PY - "$TW" bot/kit/commands.yaml <<'EOF' && ok "переходы: все клетки определены" || bad "переходы: см. выше"
 import sys, yamlmini
-tw = yamlmini.load_file(sys.argv[1]); cmds = [c["id"] for c in yamlmini.load_file(sys.argv[2])["commands"]]
+tw = yamlmini.load_file(sys.argv[1]); cmd_docs = yamlmini.load_file(sys.argv[2])["commands"]; cmds = [c["id"] for c in cmd_docs]
+pos_outcomes = dict((c["id"], set(c["outcomes"])) for c in cmd_docs)
 states = tw["session_states"]; cells = dict(((t["state"], t["input"]), t) for t in tw["transitions"])
 ids = set(o["id"] for o in tw["outcomes"]); bad = []
 expected = [(s, c) for s in states for c in cmds]
@@ -88,6 +89,9 @@ for key in expected:
     t = cells.get(key)
     if t is None: bad.append("клетка %s не определена" % (key,)); continue
     if not t.get("next_state") or not t.get("outcomes"): bad.append("клетка %s пуста" % (key,))
+    # согласованность двух проекций (раунд 4 T8, W4): исходы клетки ⊆ исходов позиции в реестре команд — вторая копия не расходится
+    extra = set(t["outcomes"]) - pos_outcomes.get(key[1], set())
+    if extra: bad.append("клетка %s: исходы вне реестра позиции: %s" % (key, sorted(extra)))
     for o in t["outcomes"]:
         if o not in ids: bad.append("клетка %s: неизвестный исход %s" % (key, o))
         if o not in prec: bad.append("клетка %s: исход %s вне transition_precedence" % (key, o))
@@ -104,7 +108,7 @@ EOF
 echo "== 4. реестр команд — единственный источник; генератор детерминирован и чувствителен"
 N_CMD=$($PY -c "import yamlmini;print(len(yamlmini.load_file('bot/kit/commands.yaml')['commands']))")
 echo "  реестр команд: позиций $N_CMD"
-[ "$N_CMD" -eq 8 ] && ok "реестр команд: ровно 8 позиций" || bad "реестр команд: $N_CMD позиций"
+[ "$N_CMD" -eq 9 ] && ok "реестр команд: ровно 9 позиций (T8: +отзыв)" || bad "реестр команд: $N_CMD позиций"
 $PY -c "import yamlmini;c=yamlmini.load_file('bot/kit/commands.yaml')['commands'];import sys;sys.exit(0 if not [x for x in c if x['time_bearing'] and x['callback_allowed']] else 1)" \
   && ok "ни одна позиция time_bearing: true не исполнима кнопкой" || bad "time_bearing+callback_allowed найдены"
 for sub in help short commands-block steps-block; do
@@ -133,13 +137,13 @@ hits = []
 for f in files:
     text = open(f, encoding='utf-8').read()
     for t in tokens:
-        for m in re.finditer(re.escape(t) + r'(?![A-Za-z0-9_])', text):
+        for m in re.finditer(r'(?<![A-Za-z0-9_])' + re.escape(t) + r'(?![A-Za-z0-9_.])', text):   # путь bot/undo.py — не литерал команды
             hits.append("%s: %s" % (f, t))
 guide = open('bot/kit/docs/bot-user-guide.ru.md', encoding='utf-8').read()
 prose = re.sub(r'<!-- generated:commands:start -->.*?<!-- generated:commands:end -->', '', guide, flags=re.S)
 prose = re.sub(r'<!-- generated:steps:start -->.*?<!-- generated:steps:end -->', '', prose, flags=re.S)
 for t in tokens:
-    if re.search(re.escape(t) + r'(?![A-Za-z0-9_])', prose): hits.append("guide prose: %s" % t)
+    if re.search(r'(?<![A-Za-z0-9_])' + re.escape(t) + r'(?![A-Za-z0-9_.])', prose): hits.append("guide prose: %s" % t)
 print("  область: %d файлов + проза инструкции; токенов: %d; находок: %d" % (len(files), len(tokens), len(hits)))
 for h in sorted(set(hits)): print("  !! " + h)
 sys.exit(1 if hits else 0)
