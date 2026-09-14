@@ -80,16 +80,18 @@ class Ctx(object):
         self.people_path = os.path.join(root, ".workshop", "people.yaml")
 
     # ---------------------------------------------------------------- ввод-вывод
-    def say(self, chat_id, text, reply_to=None, reply_markup=None):
+    def say(self, chat_id, text, reply_to=None, reply_markup=None, thread_id=None):
         """Ответ в чат (раунд 7 Fable, B2): текст длиннее предела мессенджера режется на части по строкам; недоставленный
         ответ (бот заблокирован, чат недоступен, сеть) НЕ становится сбоем инструмента — исход update стоит, offset
         продвигается, отказ пишется в трассу и журнал (иначе один заблокировавший бота человек останавливает всех)."""
         self.outgoing.append((chat_id, text))
         parts = _chunks(text, TG_TEXT_MAX)
+        thread_id = thread_id if thread_id is not None else getattr(self, "current_thread", None)   # топик текущего update
         for k, part in enumerate(parts):
             try:
                 self.transport.send_message(chat_id, part, reply_to_message_id=reply_to if k == 0 else None,
-                                            reply_markup=reply_markup if k == len(parts) - 1 else None)
+                                            reply_markup=reply_markup if k == len(parts) - 1 else None,
+                                            message_thread_id=thread_id)
                 self.trace.add("send", "chat:%s" % chat_id, 0)
             except tg.TransportError as e:
                 self.trace.add("send_failed", "chat:%s" % chat_id, 0, str(e)[:120])
@@ -298,6 +300,7 @@ def run_once(ctx):
             result["outcomes"].append((uid, "identical_repeat"))
             continue
         outcome, state, sessions, people_doc, people, held = _handle(ctx, u, state, sessions, people_doc, people, result)
+        ctx.current_thread = None
         result["outcomes"].append((uid, outcome))
         result["processed"] += 1
         if held:
@@ -380,6 +383,7 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
     root = ctx.root
     parsed = ctx.registry.parse(u)
     uid = u["update_id"]
+    ctx.current_thread = parsed.get("thread_id")   # все ответы на этот update — в его топик (форум-группа); None — обычный чат
     if parsed["kind"] == "non_input":
         ctx.trace.add("non_input", "update:%s" % uid, 0, parsed.get("reason"))
         return "non_input", state, sessions, people_doc, people, False

@@ -22,6 +22,7 @@ T8 — реестр форм длительности `kit/duration-forms.yaml`,
   date: 'YYYY-MM-DD' | None   — явная дата (умолчание «сегодня» применяет session.py по timezone человека)
   n: int | None; title: str; tail: bytes; text: bytes (полные байты текста сообщения)
   identity: 'tg:<chat>:<message_id>'; message_date, from_id, chat_id, chat_type, update_id, message_id
+  thread_id: int | None — топик форум-группы (message_thread_id), в который уходит ответ; from_name — имя и @тег из мессенджера
   is_callback: bool; confirmed: bool (обёрнуто префиксом подтверждения)
 Чистый модуль: ни сети, ни git; файлы реестров читаются через yamlmini.
 """
@@ -50,6 +51,17 @@ _RE_INT = re.compile(r"^\d{1,4}$")
 _RE_INT_CAND = re.compile(r"^[+-]?\d{1,9}$")
 _NOT_LETTER = r"(?![^\W\d_])"   # после единицы — не буква («1мес» ≠ «1м» + «ес»)
 _N_PREFIX = re.compile(r"^(?:№|#|[Nn](?:o\.|[ºo°])?)", re.UNICODE)
+
+
+def _from_name(frm):
+    """Имя отправителя для самозаписи (П-8): имя из мессенджера и, если есть, @тег — админу проще связать pending-запись
+    с человеком (пост-D09: «бот может собрать теги?» — только по тем, кто ему написал). Сканируется T4 как второй
+    источник байтов."""
+    name = frm.get("first_name") or ""
+    user = frm.get("username") or ""
+    if name and user:
+        return "%s @%s" % (name, user)
+    return name or ("@%s" % user if user else "")
 
 
 # Unicode Default_Ignorable_Code_Point (DerivedCoreProperties): невидимые символы, которые рендер обязан игнорировать —
@@ -301,7 +313,8 @@ class Parser(object):
                 return {"kind": "non_input", "reason": "no_sender", "update_id": uid}
             return {"kind": "input", "is_callback": False, "update_id": uid, "message_id": m.get("message_id"),
                     "chat_id": chat.get("id"), "chat_type": chat.get("type"), "from_id": frm["id"],
-                    "from_name": (frm.get("first_name") or frm.get("username") or ""), "message_date": m.get("date"),
+                    "from_name": _from_name(frm), "message_date": m.get("date"),
+                    "thread_id": (m.get("message_thread_id") if m.get("is_topic_message") else None),
                     "identity": "tg:%d:%d" % (chat.get("id"), m.get("message_id")), "text": m["text"].encode("utf-8")}
         if "callback_query" in update and isinstance(update["callback_query"], dict):
             cq = update["callback_query"]
@@ -312,7 +325,8 @@ class Parser(object):
                 return {"kind": "non_input", "reason": "callback_without_data", "update_id": uid}
             return {"kind": "input", "is_callback": True, "callback_query_id": cq.get("id"), "update_id": uid,
                     "message_id": msg.get("message_id"), "chat_id": chat.get("id"), "chat_type": chat.get("type"),
-                    "from_id": frm["id"], "from_name": (frm.get("first_name") or frm.get("username") or ""),
+                    "from_id": frm["id"], "from_name": _from_name(frm),
+                    "thread_id": (msg.get("message_thread_id") if msg.get("is_topic_message") else None),
                     "message_date": None,  # у нажатия НЕТ времени нажатия (П-6) — источником времени не является
                     "identity": "tg:%d:%d:cb:%s" % (chat.get("id", 0), msg.get("message_id", 0), cq.get("id")),
                     "text": cq["data"].encode("utf-8")}

@@ -112,13 +112,14 @@ class Transport(object):
             "allowed_updates": allowed_updates,
         })
 
-    def send_message(self, chat_id, text, reply_markup=None, reply_to_message_id=None, disable_notification=None):
+    def send_message(self, chat_id, text, reply_markup=None, reply_to_message_id=None, disable_notification=None, message_thread_id=None):
         return self.call("sendMessage", {
             "chat_id": chat_id,
             "text": text,
             "reply_markup": reply_markup,
             "reply_to_message_id": reply_to_message_id,
             "disable_notification": disable_notification,
+            "message_thread_id": message_thread_id,   # топик форум-группы: ответ остаётся в топике сообщения (пост-D09)
         })
 
     def answer_callback_query(self, callback_query_id, text=None, show_alert=None):

@@ -90,6 +90,7 @@ class FakeTransport(object):
         self.answered = []
         self.calls = []
         self.offsets = []
+        self.threads = []       # message_thread_id каждого sendMessage (топики)
 
     def call(self, method, params):
         self.calls.append(method)
@@ -102,9 +103,10 @@ class FakeTransport(object):
         self.offsets.append(offset)          # что поллер ПОДТВЕРДИЛ серверу — предмет предиката порядка подтверждения
         return [u for u in self.updates if offset is None or u["update_id"] >= offset][: (limit or 100)]
 
-    def send_message(self, chat_id, text, reply_markup=None, reply_to_message_id=None, disable_notification=None):
+    def send_message(self, chat_id, text, reply_markup=None, reply_to_message_id=None, disable_notification=None, message_thread_id=None):
         self.calls.append("sendMessage")
         self.sent.append((chat_id, text, reply_markup))
+        self.threads.append(message_thread_id)
         return {"message_id": 1}
 
     def answer_callback_query(self, callback_query_id, text=None, show_alert=None):

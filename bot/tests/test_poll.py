@@ -750,5 +750,26 @@ class TestOffsetTable(Base):
         r, t, ctx = self.run_poll([msg(TOK["stop"], date=T0)])
         self.assertEqual(r["outcomes"][-1][1], "session_closed_recorded", (r["outcomes"], t.sent[-1][1] if t.sent else None))
 
+
+    def test_topic_replies_stay_in_thread_and_pending_name_carries_tag(self):
+        """Пост-D09 (форум-группа PadelApp): ответы на команду и на кнопку уходят в топик сообщения (message_thread_id),
+        обычный чат — без топика; самозапись несёт имя и @тег из мессенджера."""
+        def topic(u, tid=77):
+            m = u["message"]; m["is_topic_message"] = True; m["message_thread_id"] = tid; return u
+        r, t, ctx = self.run_poll([topic(msg("1ч в топике", date=T0))])
+        self.assertEqual(r["outcomes"][-1][1], "recorded"); self.assertEqual(t.threads[-1], 77)
+        r, t, ctx = self.run_poll([msg("1ч без топика", date=T0 + 100)])
+        self.assertEqual(t.threads[-1], None)
+        r, t, ctx = self.run_poll([topic(msg(TOK["last"], date=T0 + 200), 78)])
+        self.assertEqual(t.threads[-1], 78)
+        cb = callback(TOK["help"]); cb["callback_query"]["message"]["is_topic_message"] = True; cb["callback_query"]["message"]["message_thread_id"] = 79
+        r, t, ctx = self.run_poll([cb])
+        self.assertEqual(r["outcomes"][-1][1], "help_given"); self.assertEqual(t.threads[-1], 79)
+        u = msg("1ч новичок", from_id=UNKNOWN_ID, date=T0 + 300); u["message"]["from"]["username"] = "new_dev"; u["message"]["from"]["first_name"] = "Нови"
+        r, t, ctx = self.run_poll([u])
+        self.assertEqual(r["outcomes"][-1][1], "recorded")
+        people = open(os.path.join(self.s.root, ".workshop", "people.yaml"), encoding="utf-8").read()
+        self.assertIn("Нови @new_dev", people)
+
 if __name__ == "__main__":
     unittest.main()
