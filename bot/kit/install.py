@@ -314,6 +314,21 @@ def cmd_layout(args):
 
 
 # ------------------------------------------------------------------ validator
+def host_target():
+    """Тройка бинаря для ХОСТА: CI заказчика — linux x86_64, клон подрядчика на macOS arm64 — darwin (пост-D09, paste-тест
+    2026-09-14: установщик клал linux-бинарь на Mac → exec format error). Неизвестный хост — явный отказ, не молчаливый linux."""
+    import platform
+    m = platform.machine().lower(); s = sys.platform
+    arch = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "aarch64", "aarch64": "aarch64"}.get(m)
+    if arch is None:
+        raise Refuse("неизвестная архитектура хоста %r — укажите --target явно" % m)
+    if s.startswith("linux"):
+        return "%s-unknown-linux-gnu" % arch
+    if s == "darwin":
+        return "%s-apple-darwin" % arch
+    raise Refuse("неизвестная ОС хоста %r — укажите --target явно" % s)
+
+
 def _pick_artifact(release_doc, target):
     pinned = str(release_doc.get("pinned_version"))
     for r in release_doc.get("releases") or []:
@@ -338,6 +353,8 @@ def _fetch_https(url, timeout_s):
 def cmd_validator(args):
     rel_path = args.release or os.path.join(args.kit, "validator-release.yaml")
     doc = yamlmini.load_file(rel_path)
+    if not args.target:
+        args.target = host_target()
     version, art = _pick_artifact(doc, args.target)
     for k in ("sha256", "purpose"):
         if k not in art:
@@ -480,7 +497,7 @@ def main(argv=None):
                    help="разрешить раскладку обёрток с плейсхолдерами пинов — ТОЛЬКО для прогонов по шаблону монорепо; у заказчика комплект приходит выпущенным релизом")
     p = sub.add_parser("validator")
     p.add_argument("--release", default=None)
-    p.add_argument("--target", default="x86_64-unknown-linux-gnu")
+    p.add_argument("--target", default=None, help="целевая тройка бинаря; по умолчанию — хост (uname), см. host_target()")
     p.add_argument("--dest", default=None, help="куда положить (прогоны); по умолчанию — .workshop-bin/workshop-validator репозитория")
     p.add_argument("--path", default=None, help="локальный артефакт вместо скачивания (прогоны)")
     p.add_argument("--timeout-s", type=int, default=None)
