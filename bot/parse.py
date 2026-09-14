@@ -222,7 +222,8 @@ class DurationForms(object):
                 rest = s[m.end():]
                 # ещё одна длительность ВПЛОТНУЮ к ведущей (повтор единицы, слом порядка) — неоднозначность,
                 # а не заголовок «2ч созвон» (гл. 01 §1: «повтор единицы → duration_ambiguous»)
-                if secs is None or self.re_one.match(rest.lstrip(" ,")):
+                # класс пробела — любой Unicode-пробел, не только U+0020 (раунд 11 Codex: «1ч<TAB>2ч созвон» записывал 1 ч)
+                if secs is None or self.re_one.match(rest.lstrip(",").lstrip().lstrip(",")):
                     return None, s, "duration_ambiguous"
                 # ведущая ЧЧ:ММ и единичная длительность дальше в строке («15:00 созвон 1ч») — ЧЧ:ММ здесь скорее
                 # время суток: неоднозначность, а не 15 часов в табель (раунд 3)

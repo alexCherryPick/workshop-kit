@@ -39,7 +39,7 @@ hhmm_positions: [leading]
 # длительность вплотную к ведущей — НЕОДНОЗНАЧНОСТЬ (duration_ambiguous), не заголовок [раунд 1, №11;
 # гл. 01 §1]. Ведущая ЧЧ:ММ при единичной длительности дальше в строке («15:00 созвон 1ч») — тоже
 # неоднозначность: ЧЧ:ММ здесь скорее время суток [раунд 3].
-compound_separator: '[ ,]*'
+compound_separator: '[\s,]*'   # любой Unicode-пробел и/или запятая (раунд 11 Codex: TAB между единицами)
 compound_order: [hours, minutes]
 
 # Конечная форма НЕ берётся, если перед ней стоит предлог/маркер момента или количества: «созвон в 15:00»,
@@ -126,6 +126,10 @@ forms:
     example: "1ч пробежка 400м"
     expected_seconds: 3600
     expected_title: "пробежка 400м"
+  - id: compound_with_tab_separator
+    example: "1ч\t20м созвон"
+    expected_seconds: 4800
+    expected_title: "созвон"
   - id: time_of_day_in_middle_is_not_duration
     example: "созвон в 15:00 1ч"
     expected_seconds: 3600
@@ -138,6 +142,10 @@ forms:
 # ОТРИЦАТЕЛЬНЫЙ КОРПУС — что НЕ есть длительность (переспрос с названной причиной).
 negative:
   - example: "1ч 2ч созвон"          # повтор единицы сразу после ведущей — не «1ч + заголовок 2ч созвон»
+    reason: duration_ambiguous
+  - example: "1ч\t2ч созвон"         # то же через TAB/любой пробел — класс пробела один [раунд 11]
+    reason: duration_ambiguous
+  - example: "40м\u000b10 min созвон"  # то же через VT
     reason: duration_ambiguous
   - example: "2ч 40м 10 min проба"   # третья длительность вплотную к составной — неоднозначность, не заголовок
     reason: duration_ambiguous
