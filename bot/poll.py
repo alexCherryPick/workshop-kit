@@ -213,7 +213,7 @@ def reply_text(ctx, outcome, decision, parsed, extra=None):
         if not titles:
             return "записей пока нет."
         rows = ["%d. %s%s" % (i + 1, t, " — отозвано" if i < len(marks) and marks[i] else "") for i, t in enumerate(titles)]
-        return "последние заголовки:\n" + "\n".join(rows) + "\nповторить: %s <N>; отозвать/вернуть: %s <N>" % (token_of(ctx, "start_n"), token_of(ctx, "undo"))
+        return "последние заголовки:\n" + "\n".join(rows) + "\nповторить: %s <N>; задним числом: %s <от>-<до> <N>; отозвать/вернуть: %s <N>" % (token_of(ctx, "start_n"), token_of(ctx, "track"), token_of(ctx, "undo"))
     return outcome
 
 
@@ -452,10 +452,11 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
     handle = person["handle"]
     tz = person["timezone"]
     last_titles = None
-    if parsed["position"] in ("last", "start_n"):
-        n = min(parsed.get("n") or int(ctx.cfg.get("last_default_n", 5)), int(ctx.cfg.get("last_max_n", 50)))   # раунд 7 B2: предел списка
+    if parsed["position"] in ("last", "start_n") or (parsed["position"] == "track" and parsed.get("n")):
+        # без N у списка — все уникальные заголовки в пределах last_max_n (REQ-106: last_default_n 0 = «все»)
+        n = min(parsed.get("n") or int(ctx.cfg.get("last_default_n", 0) or 0) or int(ctx.cfg.get("last_max_n", 50)), int(ctx.cfg.get("last_max_n", 50)))   # раунд 7 B2: предел списка
         # список для повтора по N — ТОТ ЖЕ предел last_max_n, что у показа: номер, которого человек увидеть не мог,
-        # не адресует строку (раунд 8 T8, Fable W1)
+        # не адресует строку (раунд 8 T8, Fable W1); запись по N (REQ-105) — тем же списком
         last_titles = lastn.titles(root, handle, max(n, 1) if parsed["position"] == "last" else int(ctx.cfg.get("last_max_n", 50)), ctx.cfg.get("namespace"))
     d = session_mod.decide(sessions["sessions"].get(handle), parsed, {"handle": handle, "timezone": tz}, ctx.cfg, last_titles, tail_of=ctx.registry.tail_of)
     outcome = d["outcome"]
@@ -491,7 +492,7 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
         state = _merge_state_after_remote_change(ctx.base["state_doc"], state, ss.read_state(root))
         sessions = ss.read_sessions(root)
         _snapshot_base(ctx, root, state)
-        if parsed["position"] in ("last", "start_n"):
+        if parsed["position"] in ("last", "start_n") or (parsed["position"] == "track" and parsed.get("n")):
             last_titles = lastn.titles(root, handle, int(ctx.cfg.get("last_max_n", 50)), ctx.cfg.get("namespace"))
         d = session_mod.decide(sessions["sessions"].get(handle), parsed, {"handle": handle, "timezone": tz}, ctx.cfg, last_titles, tail_of=ctx.registry.tail_of)
         outcome = d["outcome"]

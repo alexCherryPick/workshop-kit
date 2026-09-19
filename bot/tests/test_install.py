@@ -269,6 +269,23 @@ class LayoutTests(unittest.TestCase):
         self.assertIn("WORKSHOP_UNKNOWN", out)
 
 
+class CronPeriodTests(unittest.TestCase):
+    """Раунд 3 W7: период сторожа сверяется с cron обёртки — источником расписания, не копией."""
+    def test_cron_forms(self):
+        sys.path.insert(0, _KIT); import install   # noqa: E402
+        KIT = _KIT
+        self.assertEqual(install.cron_period_minutes('on:\n  schedule:\n    - cron: "17 */2 * * *"\n'), 120)
+        self.assertEqual(install.cron_period_minutes('    - cron: "*/15 * * * *"\n'), 15)
+        self.assertIsNone(install.cron_period_minutes('    - cron: "0 9 * * 1-5"\n'))   # не сверяемо → установщик ОТКАЗЫВАЕТ при наличии обёртки (W6 р.4)
+        for cal in ('"17 */2 * * 1"', '"17 */2 1 * *"', '"*/5 * * * 1-5"', '"*/5 * 3 * *"'):   # r5 W3: календарные ограничения — период не постоянен
+            self.assertIsNone(install.cron_period_minutes("    - cron: %s\n" % cal), cal)
+        for bad in ('"99 */2 * * *"', '"*/61 * * * *"', '"17 */25 * * *"', '"*/0 * * * *"', '"17 */0 * * *"', '"*/٥ * * * *"', '"1７ */2 * * *"'):   # r6 W2: диапазоны и ASCII
+            self.assertIsNone(install.cron_period_minutes("    - cron: %s\n" % bad), bad)
+        self.assertEqual(install.cron_period_minutes('    - cron: "59 */23 * * *"\n'), 1380)
+        self.assertIsNone(install.cron_period_minutes("no schedule"))
+        self.assertEqual(install.cron_period_minutes(open(os.path.join(KIT, "workflows", "heartbeat.yml"), encoding="utf-8").read()), 120)
+
+
 class KitRefTests(unittest.TestCase):
     def setUp(self):
         self.k = _Kit()

@@ -105,6 +105,9 @@ class FakeTransport(object):
 
     def send_message(self, chat_id, text, reply_markup=None, reply_to_message_id=None, disable_notification=None, message_thread_id=None):
         self.calls.append("sendMessage")
+        if getattr(self, "fail_send", False) or (getattr(self, "fail_after_parts", None) is not None and self.calls.count("sendMessage") > self.fail_after_parts):
+            import tg
+            raise tg.TransportError("sendMessage: network error (стенд)")
         self.sent.append((chat_id, text, reply_markup))
         self.threads.append(message_thread_id)
         return {"message_id": 1}

@@ -120,6 +120,58 @@ class TimerTests(unittest.TestCase):
         d = session.decide(dict(OPEN), self.P.parse(upd(TOK["stop"], uid=3, mid=12, date=1752698400)), PERSON, CFG, tail_of=self.P.tail_of)
         self.assertEqual((d["outcome"], d["reply"]["rule"], d["new_record"]), ("reask_invalid", "HOURS_RANGE", session.UNCHANGED))
 
+    def test_stop_with_clock_time_is_last_such_time_not_after_message(self):
+        """REQ-104: конец = ПОСЛЕДНЕЕ такое местное время не позже сообщения; раньше начала — переспрос."""
+        # открыт 2025-07-16 22:40 Belgrade (1752698400); сообщение 2025-07-17 01:15 (1752707700): «23:30» → вчера 23:30
+        d = session.decide(dict(OPEN), self.P.parse(upd(TOK["stop"] + " 23:30", uid=3, mid=12, date=1752707700)), PERSON, CFG, tail_of=self.P.tail_of)
+        self.assertEqual(d["outcome"], "session_closed_recorded")
+        self.assertEqual([(l["date"], l["seconds"]) for l in d["lines"]], [("2025-07-16", 50 * 60)])
+        # «00:30» в 01:15 → сегодня 00:30 (после полуночи → две строки: 22:40–24:00 и 00:00–00:30)
+        d = session.decide(dict(OPEN), self.P.parse(upd(TOK["stop"] + " 00:30", uid=3, mid=12, date=1752707700)), PERSON, CFG, tail_of=self.P.tail_of)
+        self.assertEqual([(l["date"], l["seconds"]) for l in d["lines"]], [("2025-07-16", 80 * 60), ("2025-07-17", 30 * 60)])
+        # время раньше начала (22:00 вчера) — HOURS_RANGE
+        d = session.decide(dict(OPEN), self.P.parse(upd(TOK["stop"] + " 22:00", uid=3, mid=12, date=1752707700)), PERSON, CFG, tail_of=self.P.tail_of)
+        self.assertEqual((d["outcome"], d["reply"]["rule"]), ("reask_invalid", "HOURS_RANGE"))
+        # хвост после времени — коммент (тело — полные байты); без хвоста носитель закрытия коммента не даёт
+        d = session.decide(dict(OPEN), self.P.parse(upd(TOK["stop"] + " 23:30 итог дня", uid=3, mid=12, date=1752707700)), PERSON, CFG, tail_of=self.P.tail_of)
+        self.assertTrue(any(c["body"].endswith("23:30 итог дня".encode("utf-8")) for c in d["comments"]))
+        d = session.decide(dict(OPEN), self.P.parse(upd(TOK["stop"] + " 23:30", uid=3, mid=12, date=1752707700)), PERSON, CFG, tail_of=self.P.tail_of)
+        self.assertEqual([c for c in d["comments"] if c["identity"].endswith(":12")], [])
+
+    def test_stop_autumn_fold_takes_latest_pass_not_after_message(self):
+        """W4: повторяющийся час осеннего перехода — ПОЗДНИЙ проход, если он не позже сообщения; иначе ранний."""
+        # Europe/Belgrade 2025-10-26: 02:30 существует дважды — 00:30Z (CEST, fold=0) и 01:30Z (CET, fold=1)
+        rec = dict(OPEN); rec["started_at"] = 1761430200; rec["started_at_local"] = "2025-10-25T23:30:00+02:00"   # 21:30Z
+        late = 1761442200   # 2025-10-26 01:30Z = 02:30 CET (второй проход)
+        early = 1761438600  # 2025-10-26 00:30Z = 02:30 CEST (первый проход)
+        d = session.decide(rec, self.P.parse(upd(TOK["stop"] + " 02:30", uid=3, mid=12, date=late + 2400)), PERSON, CFG, tail_of=self.P.tail_of)   # сообщение 03:10 CET
+        self.assertEqual(d["lines"][-1]["interval"][1], late)
+        d = session.decide(rec, self.P.parse(upd(TOK["stop"] + " 02:30", uid=3, mid=12, date=early + 600)), PERSON, CFG, tail_of=self.P.tail_of)   # сообщение 02:40 CEST — второй проход ещё не наступил
+        self.assertEqual(d["lines"][-1]["interval"][1], early)
+
+    def test_stop_with_nonexistent_local_time_is_reask(self):
+        # весенний переход Europe/Belgrade 2025-03-30: 02:30 не существует; открыт 2025-03-30 00:10 (+01:00), сообщение 04:00 (+02:00)
+        rec = dict(OPEN); rec["started_at"] = 1743289800; rec["started_at_local"] = "2025-03-30T00:10:00+01:00"
+        d = session.decide(rec, self.P.parse(upd(TOK["stop"] + " 02:30", uid=3, mid=12, date=1743300000)), PERSON, CFG, tail_of=self.P.tail_of)
+        self.assertEqual((d["outcome"], d["reply"]["reason"]), ("reask_unparsed", "nonexistent_local_time"))
+
+    def test_track_n_resolves_title_from_last_list(self):
+        """REQ-105: запись задним числом по номеру — тем же списком и с теми же переспросами, что у start_n."""
+        d = session.decide(None, self.P.parse(upd(TOK["track"] + " 10:00-12:00 2", date=1752698400)), PERSON, CFG, tail_of=self.P.tail_of, last_titles=["первое", "второе"])
+        self.assertEqual((d["outcome"], d["lines"][0]["title"], d["reply"]["title"]), ("recorded", "второе", "второе"))
+        d = session.decide(None, self.P.parse(upd(TOK["track"] + " 10:00-12:00 3", date=1752698400)), PERSON, CFG, tail_of=self.P.tail_of, last_titles=["первое", "второе"])
+        self.assertEqual((d["outcome"], d["reply"]["reason"]), ("reask_unparsed", "n_out_of_range"))
+        d = session.decide(None, self.P.parse(upd(TOK["track"] + " 10:00-12:00 1", date=1752698400)), PERSON, CFG, tail_of=self.P.tail_of, last_titles=None)
+        self.assertEqual((d["outcome"], d["reply"]["reason"]), ("reask_unparsed", "last_list_unavailable"))
+
+    def test_last_without_n_lists_all_given(self):
+        """REQ-106: без N и с last_default_n 0 — весь переданный список (предел ставит поллер)."""
+        titles = ["t%d" % i for i in range(9)]
+        d = session.decide(None, self.P.parse(upd(TOK["last"], date=1752698400)), PERSON, {"last_default_n": 0, "namespace": None}, tail_of=self.P.tail_of, last_titles=titles)
+        self.assertEqual(d["reply"]["titles"], titles)
+        d = session.decide(None, self.P.parse(upd(TOK["last"] + " 2", date=1752698400)), PERSON, {"last_default_n": 0, "namespace": None}, tail_of=self.P.tail_of, last_titles=titles)
+        self.assertEqual(d["reply"]["titles"], titles[:2])
+
     def test_repeat_start_and_identical_repeat(self):
         d = session.decide(dict(OPEN), self.P.parse(upd(TOK["start_title"] + " другое", uid=2, mid=11, date=1752700000)), PERSON, CFG, tail_of=self.P.tail_of)
         self.assertEqual((d["outcome"], d["new_record"], d["reply"]["title"]), ("reask_start_already_open", session.UNCHANGED, "созвон"))

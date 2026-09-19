@@ -87,7 +87,7 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(r["time"], {"kind": "interval", "from": (10, 15), "to": (12, 0)})
         r = self.P.parse(upd("2026-09-05 10:15-12:00 разбор"))
         self.assertEqual((r["date"], r["title"]), ("2026-09-05", "разбор"))
-        for bad in ("просто текст", TOK["track"] + " разбор без интервала", TOK["track"] + " 25:00-26:00 x", TOK["start_title"], TOK["start_n"] + " 0", TOK["start_n"] + " -1", TOK["last"] + " много", "/nope", TOK["confirm"]):
+        for bad in ("просто текст", TOK["track"] + " разбор без интервала", TOK["track"] + " 25:00-26:00 x", TOK["start_n"] + " 0", TOK["start_n"] + " -1", TOK["last"] + " много", "/nope", TOK["confirm"]):
             r = self.P.parse(upd(bad))
             self.assertEqual(r["kind"], "unparsed", bad)
 
@@ -227,13 +227,48 @@ class Round2Tests(unittest.TestCase):
             self.assertEqual(one(text), want, text)
 
 
+    def test_stop_optional_clock_time_and_tail(self):
+        """REQ-104: первая лексема аргумента закрытия в форме ЧЧ:ММ — время конца; хвост начинается ПОСЛЕ неё."""
+        st = self.P.by_id["stop"]["token"]
+        r = self.P.parse(upd(st)); self.assertEqual((r["kind"], r.get("stop_time"), r["tail"]), ("input", None, b""))
+        r = self.P.parse(upd(st + " 18:30")); self.assertEqual((r["kind"], r["stop_time"], r["tail"]), ("input", (18, 30), b""))
+        r = self.P.parse(upd(st + " 18:30 конец дня\nи ниже")); self.assertEqual((r["stop_time"], r["tail"]), ((18, 30), "конец дня\nи ниже".encode("utf-8")))
+        r = self.P.parse(upd(st + " 18:30\nниже")); self.assertEqual((r["stop_time"], r["tail"]), ((18, 30), "ниже".encode("utf-8")))
+        r = self.P.parse(upd(st + " 24:00")); self.assertEqual(r["stop_time"], (24, 0))
+        r = self.P.parse(upd(st + " 24:30")); self.assertEqual((r["kind"], r["reason"]), ("unparsed", "stop_time_not_clock"))
+        for bad in ("25:00", "18:75", "18:3", "18:30:00", "18.30", "7:5", "18:30-19:00", "1.5", "15.09.2026", "12345:30", "000018:30"):   # начинается как время, но не время — переспрос, не хвост (без предела длины)
+            r = self.P.parse(upd(st + " " + bad + " хвост")); self.assertEqual((r["kind"], r.get("reason")), ("unparsed", "stop_time_not_clock"), bad)
+        for wrapped in ("18:30,", "18:30;", "(18:30)", "«18:30»", "18:30!", "18:30.", "18:30–"):    # обёртки и хвостовая пунктуация (и тире) — снимаются, время читается
+            r = self.P.parse(upd(st + " " + wrapped + " устал")); self.assertEqual((r["kind"], r.get("stop_time"), r["tail"]), ("input", (18, 30), "устал".encode("utf-8")), wrapped)
+        for tail in ("3 звонка", "25", "v2", "2026-09-15", "1830", "500 слов", "2025 план"):       # не начинается как время — хвост как прежде
+            r = self.P.parse(upd(st + " " + tail)); self.assertEqual((r["kind"], r.get("stop_time")), ("input", None), tail)
+        r = self.P.parse(upd(st + " конец")); self.assertEqual((r["kind"], r.get("stop_time"), r["tail"]), ("input", None, "конец".encode("utf-8")))   # не время — хвост как прежде
+        r = self.P.parse(upd(st + " 9:05")); self.assertEqual(r["stop_time"], (9, 5))
+        r = self.P.parse(upd(st + " \u200b18:30")); self.assertEqual(r["stop_time"], (18, 30))          # невидимые символы — не лексема
+
+    def test_track_n_instead_of_title(self):
+        """REQ-105: единственная лексема после интервала, похожая на номер, — номер из списка последних."""
+        tr = self.P.by_id["track"]["token"]
+        r = self.P.parse(upd(tr + " 10:00-12:00 2")); self.assertEqual((r["kind"], r["n"], r["title"]), ("input", 2, ""))
+        r = self.P.parse(upd(tr + " 2026-09-15 10:00-12:00 №3")); self.assertEqual((r["n"], r["date"]), (3, "2026-09-15"))
+        r = self.P.parse(upd(tr + " 10:00-12:00 2 созвона")); self.assertEqual((r["n"], r["title"]), (None, "2 созвона"))   # две лексемы — заголовок
+        r = self.P.parse(upd(tr + " 10:00-12:00 0")); self.assertEqual((r["kind"], r["reason"]), ("unparsed", "n_not_positive_integer"))
+        r = self.P.parse(upd(tr + " 10:00-12:00 ревью")); self.assertEqual((r["n"], r["title"]), (None, "ревью"))
+
     def test_phantom_lexeme_in_start_n_and_last(self):
         """Раунд 10 B, W1/W4: лексема из одних невидимых символов — не лексема; видимая форма N у повтора и списка."""
         st, la = self.P.by_id["start_n"]["token"], self.P.by_id["last"]["token"]
         for arg, want in (("\u200b2", 2), (" \u200b 2", 2), ("2\u200b", 2), ("\ufeff5", 5)):
             r = self.P.parse(upd(st + " " + arg)); self.assertEqual((r["kind"], r.get("n")), ("input", want), repr(arg))
             r = self.P.parse(upd(la + " " + arg)); self.assertEqual((r["kind"], r.get("n")), ("input", want), repr(arg))
-        r = self.P.parse(upd(st + " \u200b")); self.assertEqual((r["kind"], r.get("reason")), ("unparsed", "title_empty"))   # ни номера, ни видимого заголовка
+        r = self.P.parse(upd(st + " \u200b")); self.assertEqual((r["kind"], r["position"]), ("input", "help"))   # пустой заголовок = кнопка Start → справка
+
+    def test_bare_start_is_help_not_reask(self):
+        """alex 2026-09-19: голый токен открытия (кнопка Start мессенджера) — справка, не «не понял»."""
+        st = self.P.by_id["start_title"]["token"]
+        for text in (st, st + " ", st + "\n", "@cp_workshop_test_bot " + st):
+            r = self.P.parse(upd(text)); self.assertEqual((r["kind"], r["position"]), ("input", "help"), repr(text))
+        r = self.P.parse(upd(st + " созвон")); self.assertEqual(r["position"], "start_title")   # ни номера, ни видимого заголовка
 
 if __name__ == "__main__":
     unittest.main()

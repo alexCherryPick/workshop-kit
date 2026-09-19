@@ -130,6 +130,21 @@ def decide(record, parsed, person, config, last_titles=None, tail_of=None):
             return _reask("reask_stop_without_open", "no_open_session")
         start = int(record["started_at"])
         end = int(parsed["message_date"])
+        if parsed.get("stop_time"):
+            # конец = ПОСЛЕДНЕЕ такое местное время не позже момента сообщения (REQ-104): сегодня по
+            # местной дате сообщения (в повторяющийся час осеннего перехода — ПОЗДНИЙ проход, если он не позже
+            # сообщения; иначе ранний), а если ещё не наступило — вчера. Несуществующее местное время — переспрос.
+            h, mi = parsed["stop_time"]
+            date_iso = line_mod.local_date(end, tz)
+            today = _local_passes(date_iso, h, mi, tz)
+            if not today:
+                return _reask("reask_unparsed", "nonexistent_local_time")
+            fit = [ts for ts in today if ts <= end]
+            if not fit:
+                fit = _local_passes(_prev_date(date_iso), h, mi, tz)
+                if not fit:
+                    return _reask("reask_unparsed", "nonexistent_local_time")
+            end = max(fit)
         if end <= start:
             # интервал невыразим (ноль или отрицательная длительность): переспрос по правилу HOURS_RANGE
             return _reask("reask_invalid", "end_not_after_start", rule="HOURS_RANGE", started_at=start, ended_at=end)
@@ -146,6 +161,14 @@ def decide(record, parsed, person, config, last_titles=None, tail_of=None):
                           "hours_total": _hours_sum(lines), "segments": len(lines)}}
 
     if pos in ("track", "free_text"):
+        if pos == "track" and parsed.get("n"):
+            # <N> вместо заголовка (REQ-105) — разрешение тем же списком и с теми же переспросами, что у start_n
+            if last_titles is None:
+                return _reask("reask_unparsed", "last_list_unavailable", n=parsed["n"])
+            n = parsed["n"]
+            if n < 1 or n > len(last_titles):
+                return _reask("reask_unparsed", "n_out_of_range", n=n, available=len(last_titles))
+            parsed = dict(parsed); parsed["title"] = last_titles[n - 1]
         date_iso = parsed.get("date") or line_mod.local_date(parsed["message_date"], tz)
         t = parsed["time"]
         if t["kind"] == "duration":
@@ -169,7 +192,8 @@ def decide(record, parsed, person, config, last_titles=None, tail_of=None):
                           "hours_total": _hours_sum(lines)}}
 
     if pos == "last":
-        n = parsed.get("n") or int(config.get("last_default_n", 5))
+        # без N — ВСЕ уникальные заголовки (REQ-106): last_default_n: 0 = «все» в пределах last_max_n (предел ставит поллер)
+        n = parsed.get("n") or int(config.get("last_default_n", 0) or 0) or len(last_titles or [])
         return {"outcome": "last_list_given", "new_record": UNCHANGED, "lines": [], "comments": [],
                 "reply": {"n": n, "titles": (last_titles or [])[:n] if last_titles is not None else None}}
 
@@ -187,6 +211,26 @@ def decide(record, parsed, person, config, last_titles=None, tail_of=None):
 
 def _as_bytes(text):
     return text.encode("utf-8") if isinstance(text, str) else bytes(text)
+
+
+def _local_passes(date_iso, h, m, tz_name):
+    """Все инстанты с этим местным временем в этот день (0 — не существует: весенняя дыра; 1 — обычно;
+    2 — повторяющийся час осеннего перехода). Существование — тем же круговым тестом, что _epoch_of_local."""
+    y, mo, d = (int(x) for x in date_iso.split("-"))
+    tz = ZoneInfo(tz_name)
+    naive = datetime.datetime(y, mo, d) + datetime.timedelta(hours=h, minutes=m)
+    out = []
+    for fold in (0, 1):
+        aware = naive.replace(tzinfo=tz, fold=fold)
+        ts = int(aware.timestamp())
+        if datetime.datetime.fromtimestamp(ts, tz).replace(tzinfo=None) == naive and ts not in out:
+            out.append(ts)
+    return out
+
+
+def _prev_date(date_iso):
+    y, m, d = (int(x) for x in date_iso.split("-"))
+    return (datetime.date(y, m, d) - datetime.timedelta(days=1)).isoformat()
 
 
 def _next_date(date_iso):

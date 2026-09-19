@@ -22,7 +22,7 @@ T0 = 1788790990  # 2026-09-07T14:23:10Z
 
 
 def contract_outcomes():
-    """[(ordinal, id, offset)] — исходы (23 после T8) из машинного дубля контракта (tg-bot.yaml outcomes),
+    """[(ordinal, id, offset)] — исходы (24: 23 после T8 + session_cancelled) из машинного дубля контракта (tg-bot.yaml outcomes),
     построчным чтением полей ordinal/id/offset; ручной копии перечня в тесте нет."""
     rows, cur, inside = [], {}, False
     for ln in open(CONTRACT, encoding="utf-8"):
@@ -167,6 +167,22 @@ class TestCycle(Base):
         self.assertNotIn(r["outcomes"][1][1], poll.RECORD_OUTCOMES)  # time_bearing позиция callback'ом НЕ исполняется
         self.assertEqual(len(t.answered), 2)                          # подтверждение нажатия — через транспорт
         self.assertEqual(self.offset(), r["outcomes"][1][0] + 1)
+
+    def test_last_without_n_lists_all_unique_and_track_n_records(self):
+        """REQ-106 / REQ-105: без N — все уникальные заголовки (шаблон комплекта: last_default_n 0); запись по номеру тем же списком."""
+        self.assertEqual(int(self.cfg.get("last_default_n", 0)), 0)
+        self.run_poll([msg("1ч t%d" % i) for i in range(7)] + [msg("1ч t3")])                    # t3 повторяется — уникальных 7
+        r, t, _ = self.run_poll([msg(TOK["last"])])
+        self.assertEqual(r["outcomes"][0][1], "last_list_given")
+        body = t.sent[-1][1]
+        self.assertEqual(len([ln for ln in body.splitlines() if ln[:1].isdigit()]), 7)
+        self.assertTrue(body.splitlines()[1].endswith("t3"), body)                                  # новейший первым
+        r, t, _ = self.run_poll([msg(TOK["last"] + " 2")])
+        self.assertEqual(len([ln for ln in t.sent[-1][1].splitlines() if ln[:1].isdigit()]), 2)
+        r, t, _ = self.run_poll([msg(TOK["track"] + " 10:00-11:00 2")])                            # №2 списка = t6
+        self.assertEqual(r["outcomes"][0][1], "recorded")
+        self.assertIn("«t6»", t.sent[-1][1])
+        self.assertIn("t6", open(os.path.join(self.s.root, TS), encoding="utf-8").read().splitlines()[-1])
 
     def test_last_list_keyboard(self):
         self.run_poll([msg("2ч альфа"), msg("3ч бета")])
@@ -493,11 +509,11 @@ class TestOffsetTable(Base):
 
     def test_table(self):
         rows = contract_outcomes()
-        self.assertEqual(len(rows), 23)   # T8: +retracted, unretracted, reask_undo_not_found
+        self.assertEqual(len(rows), 24)   # T8: +retracted, unretracted, reask_undo_not_found; REQ-103: +session_cancelled
         table = ["  offset-table (исход: offset до → после; advances по контракту)"]
         seen = set()
         for oid, name, adv in rows:
-            if name == "session_stale":
+            if name in ("session_stale", "session_cancelled"):
                 table.append("  %2d %-26s неприменимо (порождается сторожем T5, к offset отношения не имеет)" % (oid, name)); seen.add(name); continue
             self.tearDown(); self.setUp()
             before = self.offset()
@@ -514,7 +530,7 @@ class TestOffsetTable(Base):
                 self.assertLessEqual(origin_offset(self.s), last[0], name)   # авторитет (origin) не продвинут за удержанный update
                 self.assertIsNotNone(r["held"], name)
             seen.add(name)
-        self.assertEqual(len(seen), 23)
+        self.assertEqual(len(seen), 24)
         out = os.environ.get("D09_OFFSET_TABLE")   # selfcheck_t3.sh печатает таблицу из этого файла; поток unittest не засоряется
         if out:
             with open(out, "w", encoding="utf-8") as fh:

@@ -26,6 +26,7 @@ import os, sys
 sys.path.insert(0, "bot")
 import yamlmini
 wd = yamlmini.load_file("bot/kit/templates/bot.yaml")["watchdog"]
+cm = int(wd.get("stale_session_cancel_minutes", 0) or 0); print("  автоотмена зависшей сессии (исход 24): %s" % ("через %d мин" % cm if cm else "выключена"))
 ret = wd["retention_window_hours"]; sil = wd["unprocessed_update_alarm_hours"]; stale = wd["stale_session_alarm_hours"]; rep = wd["stale_session_repeat_hours"]; rmin = wd["rejection_report_min"]
 print("  retention=%d ч; молчание=%d ч; зависшая сессия=%d ч; повтор=%d ч; порог отчёта=%d; запас молчания до retention=%d ч" % (ret, sil, stale, rep, rmin, ret - sil))
 print("  порог зависшей сессии — ОТДЕЛЬНАЯ настройка, равна порогу молчания? %s (по плану — не обязана)" % (stale == sil))
@@ -112,6 +113,7 @@ sys.path.insert(0, "bot/tests"); sys.path.insert(0, "bot")
 import botrepo, yamlmini, poll, heartbeat, state_store as ss
 from botrepo import Stand, FakeTransport, msg, TOK, CHAT
 s = Stand(); cfg = yamlmini.load_file(os.path.join(s.root, ".workshop", "bot.yaml")); wd = cfg["watchdog"]; bad = 0
+wd["stale_session_cancel_minutes"] = 0   # блок 5 — режим УВЕДОМЛЕНИЯ (REQ-089); автоотмена — блок 5а
 T0 = 1788790990; H = 3600
 try:
     poll.run_once(poll.Ctx(s.root, FakeTransport([msg(TOK["start_title"] + " долгая задача", date=T0)]), cfg, botrepo.VALIDATOR, bot_username="x", sleeper=lambda x: None))
@@ -128,11 +130,50 @@ try:
     print("  три прогона подряд при одной сессии → уведомлений: %d (ожидание 1, редкий повтор)" % sent)
     if sent != 1: bad = 1
     # отрицательный контроль: свежая сессия
-    s2 = Stand(); cfg2 = yamlmini.load_file(os.path.join(s2.root, ".workshop", "bot.yaml"))
+    s2 = Stand(); cfg2 = yamlmini.load_file(os.path.join(s2.root, ".workshop", "bot.yaml")); cfg2["watchdog"]["stale_session_cancel_minutes"] = 0
     poll.run_once(poll.Ctx(s2.root, FakeTransport([msg(TOK["start_title"] + " x", date=T0)]), cfg2, botrepo.VALIDATOR, bot_username="x", sleeper=lambda x: None))
     t2 = FakeTransport([]); r2 = heartbeat.run_once(heartbeat.Ctx(s2.root, t2, cfg2, now=T0 + (wd["stale_session_alarm_hours"] - 1) * H, sleeper=lambda x: None))
     print("  отрицательный контроль (свежая сессия): уведомлений %d" % len(t2.sent)); s2.close()
     if t2.sent: bad = 1
+finally: s.close()
+sys.exit(bad)
+PY
+
+echo "== 5а. автоотмена зависшей сессии (исход 24, REQ-103): порог в минутах из конфига; запись снята одним коммитом без строк; шаблон записи задним числом в чат человека"
+$PY - <<'PY' && ok "автоотмена: запись снята и запушена, строк ноль, шаблон в чате человека; ниже порога — не тронута" || bad "автоотмена"
+# -*- coding: utf-8 -*-
+import os, sys
+sys.path.insert(0, "bot/tests"); sys.path.insert(0, "bot")
+import botrepo, yamlmini, poll, heartbeat, state_store as ss
+from botrepo import Stand, FakeTransport, msg, TOK, CHAT, git
+s = Stand(); cfg = yamlmini.load_file(os.path.join(s.root, ".workshop", "bot.yaml")); wd = cfg["watchdog"]; bad = 0
+cm = int(wd.get("stale_session_cancel_minutes", 0) or 0); T0 = 1788790990
+try:
+    if cm <= 0: print("  автоотмена в шаблоне комплекта выключена — блок неприменим"); sys.exit(1)
+    poll.run_once(poll.Ctx(s.root, FakeTransport([msg(TOK["start_title"] + " долгая задача", date=T0)]), cfg, botrepo.VALIDATOR, bot_username="x", sleeper=lambda x: None))
+    rec = ss.read_sessions(s.root)["sessions"]["dev-one"]; head0 = git(s.root, "rev-parse", "HEAD").strip()
+    t0 = FakeTransport([]); r0 = heartbeat.run_once(heartbeat.Ctx(s.root, t0, cfg, now=T0 + cm * 60, sleeper=lambda x: None))
+    print("  ровно порог (%d мин): отменено %d, уведомлений %d, запись на месте: %s" % (cm, len([x for x in r0["stale"] if x.get("cancelled")]), len(t0.sent), "dev-one" in ss.read_sessions(s.root)["sessions"]))
+    if [x[1] for x in t0.sent if "отменён," in x[1]] or "dev-one" not in ss.read_sessions(s.root)["sessions"]: bad = 1
+    t = FakeTransport([]); r = heartbeat.run_once(heartbeat.Ctx(s.root, t, cfg, now=T0 + cm * 60 + 1, sleeper=lambda x: None))
+    gone_local = "dev-one" not in ss.read_sessions(s.root)["sessions"]; gone_origin = "dev-one" not in ss.read_sessions_at(s.root, "origin/main")["sessions"]
+    log = [ln.split(" ", 1) for ln in git(s.root, "log", "--format=%H %s", "%s..HEAD" % head0).splitlines()]
+    cancel = [h for h, subj in log if "session_cancelled" in subj]
+    stat = git(s.root, "show", "--stat", "--format=%s", cancel[0]) if cancel else ""; tpl = heartbeat.track_template(rec)
+    print("  порог+1с: отменено %d; снята локально: %s, в origin: %s; коммитов отмены: %d (%s); строк времени в коммите: %s; адресат %s; шаблон в тексте: %s" % (len([x for x in r["stale"] if x.get("cancelled")]), gone_local, gone_origin, len(cancel), stat.splitlines()[0] if stat else "-", "time/" in stat, t.sent[0][0] if t.sent else None, tpl in (t.sent[0][1] if t.sent else "")))
+    print("  шаблон: %s" % tpl)
+    if not (gone_local and gone_origin and len(cancel) == 1 and "time/" not in stat and len(t.sent) == 1 and t.sent[0][0] == CHAT and tpl in t.sent[0][1]): bad = 1
+    # правило публикации (B1 адверсария): отвергнутый push → откат к базе, сессия жива в origin, человеку ничего, админам алярм
+    s3 = Stand(); cfg3 = yamlmini.load_file(os.path.join(s3.root, ".workshop", "bot.yaml"))
+    poll.run_once(poll.Ctx(s3.root, FakeTransport([msg(TOK["start_title"] + " x", date=T0)]), cfg3, botrepo.VALIDATOR, bot_username="x", sleeper=lambda x: None))
+    head3 = git(s3.root, "rev-parse", "HEAD").strip(); s3.deny_push(True)
+    t3 = FakeTransport([]); r3 = heartbeat.run_once(heartbeat.Ctx(s3.root, t3, cfg3, now=T0 + cm * 60 + 1, sleeper=lambda x: None)); s3.deny_push(False)
+    subs3 = git(s3.root, "log", "--format=%s", "%s..HEAD" % head3).splitlines()
+    rolled = not [x for x in subs3 if "session_cancelled" in x]; alive = "dev-one" in ss.read_sessions_at(s3.root, "origin/main")["sessions"] and "dev-one" in ss.read_sessions(s3.root)["sessions"]
+    to_person = [x[0] for x in t3.sent if x[0] == CHAT and "отменён," in x[1]]; to_admins = [x[0] for x in t3.sent if x[0] != CHAT]
+    print("  push отвергнут: отменено %d, коммит отмены откачен: %s, сессия жива (origin и локально): %s, человеку «отменён»: %d, админам алярм: %d" % (len([x for x in r3["stale"] if x.get("cancelled")]), rolled, alive, len(to_person), len(to_admins)))
+    if not (rolled and alive and not to_person and to_admins): bad = 1
+    s3.close()
 finally: s.close()
 sys.exit(bad)
 PY

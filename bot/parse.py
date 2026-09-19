@@ -48,6 +48,21 @@ _RE_DATE = re.compile(r"^(\d{4}-\d{2}-\d{2})(?:\s+|$)")
 _RE_INTERVAL_DASH = re.compile(r"^%s\s*[-–—]\s*%s(?:\s+|$)" % (_HHMM, _HHMM))
 _RE_INTERVAL_WORDS = re.compile(r"^с\s+%s\s+до\s+%s(?:\s+|$)" % (_HHMM, _HHMM), re.IGNORECASE)
 _RE_INT = re.compile(r"^\d{1,4}$")
+_RE_CLOCK = re.compile(r"^%s$" % _HHMM)   # одиночное время «ЧЧ:ММ» — необязательный первый аргумент закрытия (REQ-104)
+_RE_CLOCK_LIKE = re.compile(r"^\d+[:.]\d")   # НАЧИНАЕТСЯ как время (цифры любой длины, разделитель, цифра) — либо время ЧЧ:ММ (строгая форма — _RE_CLOCK), либо переспрос, но не молчаливый хвост
+
+
+def _clock_core(tok):
+    """Ядро лексемы времени: обёртки (скобки/кавычки Ps/Pe/Pi/Pf) и ХВОСТОВАЯ пунктуация (любая P*: «18:30,», «18:30;», «(18:30)»)
+    снимаются, как у номера отзыва (_number_like); внутренняя форма не трогается («18:30-19:00» остаётся не-временем → переспрос)."""
+    bare = _strip_cf(tok)
+    def is_wrap(ch):
+        return _ud.category(ch) in ("Ps", "Pe", "Pi", "Pf") or ch in "\"'"
+    while bare and is_wrap(bare[0]):
+        bare = bare[1:]
+    while bare and (is_wrap(bare[-1]) or _ud.category(bare[-1]).startswith("P")):
+        bare = bare[:-1]
+    return bare
 _RE_INT_CAND = re.compile(r"^[+-]?\d{1,9}$")
 _NOT_LETTER = r"(?![^\W\d_])"   # после единицы — не буква («1мес» ≠ «1м» + «ес»)
 _N_PREFIX = re.compile(r"^(?:№|#|[Nn](?:o\.|[ºo°])?)", re.UNICODE)
@@ -490,6 +505,17 @@ class Parser(object):
                 return self._unparsed(base, "track_without_interval")
             out["time"] = t
             out["title"] = s2.strip(" \t")
+            # <N> вместо заголовка (REQ-105): ЕДИНСТВЕННАЯ лексема после интервала, похожая на номер, —
+            # номер заголовка из списка последних (та же классификация, что у повтора открытия); разрешается
+            # машиной состояний по списку в момент команды. Две и более лексем — заголовок как есть.
+            lx = _lexemes(out["title"])
+            if len(lx) == 1:
+                looks_like_n, core = _number_like(lx[0][0])
+                if looks_like_n:
+                    if core is None or not _RE_INT.match(core) or int(core) < 1:
+                        return self._unparsed(base, "n_not_positive_integer")
+                    out["n"] = int(core)
+                    out["title"] = ""
             return out
         if kind == "last":
             lx = _lexemes(s)
@@ -516,10 +542,40 @@ class Parser(object):
             else:
                 out["title"] = s.strip(" \t")
             return out
-        if kind in ("stop", "help"):
+        if kind == "help":
+            return out
+        if kind == "stop":
+            # [<ЧЧ:ММ>] — необязательное время конца (REQ-104): первая лексема аргумента в форме часов;
+            # 24:00 допустимо только как ровная полночь. Лексема времени хвостом НЕ является — хвост
+            # (after_token) начинается после неё; остальные байты хвоста проходят насквозь.
+            lx = _lexemes(s)
+            core = _clock_core(lx[0][0]) if lx else ""
+            if lx and _RE_CLOCK_LIKE.match(core):
+                m = _RE_CLOCK.match(core)
+                # начинается как время, но не время («25:00», «18:75», «18.30», «18:30:00», «18:30-19:00», «1.5») — переспрос,
+                # не молчаливый хвост с закрытием «сейчас» (тот же класс, что номер отзыва: раунды 3–5 T8; раунд 2 REQ-104 W1)
+                if not m or (int(m.group(1)) == 24 and int(m.group(2)) > 0):
+                    return self._unparsed(base, "stop_time_not_clock")
+                h, mi = int(m.group(1)), int(m.group(2))
+                out["stop_time"] = (h, mi)
+                raw = lx[0][0].encode("utf-8")
+                tail = out["tail"]
+                i = tail.find(raw)
+                if i >= 0:
+                    tail = tail[i + len(raw):].lstrip(b" \t")
+                    if tail.startswith(b"\r\n"):
+                        tail = tail[2:]
+                    elif tail.startswith(b"\n"):
+                        tail = tail[1:]
+                out["tail"] = tail
             return out
         if kind == "start-title":
             if not s.strip() or not _lexemes(s):   # заголовок без единой видимой лексемы — пуст (раунд 10 B)
+                # голый токен открытия — кнопка «Start» мессенджера при первом контакте (alex 2026-09-19): это просьба
+                # о справке, не попытка открыть учёт; позиция справки — из реестра, не литералом
+                helps = [p for p in self.positions if self.grammar_kind(p) == "help"]
+                if helps:
+                    return self._apply_position(base, helps[0], "", text, after_token_offset, rest_after_lf, confirmed)
                 return self._unparsed(base, "title_empty")
             out["title"] = s.strip(" \t")
             return out

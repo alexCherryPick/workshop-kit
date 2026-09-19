@@ -44,20 +44,20 @@ UT=$($PY -m unittest discover -s bot/tests 2>&1 | tail -3)
 echo "$UT" | sed 's/^/  /'
 echo "$UT" | grep -q '^OK' && ok "unittest: OK" || bad "unittest: есть провалы"
 
-echo "== 2. перечень исходов: ровно 23 (T8: +3), пять полей, признак коммента, не коды валидатора"
+echo "== 2. перечень исходов: ровно 24 (T8: +3; REQ-103: +1), пять полей, признак коммента, не коды валидатора"
 "$BIN" --dump-identifiers --kind code < /dev/null > "$WORK/codes.txt"
 echo "  дамп кодов валидатора: $(wc -l < "$WORK/codes.txt" | tr -d ' ') строк"
-$PY - "$TW" "$WORK/codes.txt" <<'EOF' && ok "исходы: 23 позиции × 5 полей, признак у всех, ∩ дамп = ∅" || bad "исходы: см. выше"
+$PY - "$TW" "$WORK/codes.txt" <<'EOF' && ok "исходы: 24 позиции × 5 полей, признак у всех, ∩ дамп = ∅" || bad "исходы: см. выше"
 import sys, yamlmini
 tw = yamlmini.load_file(sys.argv[1]); codes = set(open(sys.argv[2]).read().split())
 outs = tw["outcomes"]; ids = [o["id"] for o in outs]
 print("  исходов в реестре: %d" % len(outs))
 must = ["identical_repeat","recorded_with_warning","run_refused","tool_failure","non_input","session_opened",
-        "session_closed_recorded","reask_start_already_open","reask_stop_without_open","session_stale","help_given","last_list_given"]
+        "session_closed_recorded","reask_start_already_open","reask_stop_without_open","session_stale","session_cancelled","help_given","last_list_given"]
 bad = []
-if len(outs) != 23: bad.append("число исходов %d != 23" % len(outs))
-if len(set(ids)) != 23: bad.append("дубли id")
-if sorted(o["ordinal"] for o in outs) != list(range(1, 24)): bad.append("ординалы не 1..23")
+if len(outs) != 24: bad.append("число исходов %d != 24" % len(outs))
+if len(set(ids)) != 24: bad.append("дубли id")
+if sorted(o["ordinal"] for o in outs) != list(range(1, 25)): bad.append("ординалы не 1..24")
 for m in must:
     if m not in ids: bad.append("нет обязательного исхода %s" % m)
 for o in outs:

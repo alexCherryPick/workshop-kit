@@ -411,6 +411,24 @@ def check_people_doc(doc, bot_handle):
         raise Refuse(str(e))
 
 
+def cron_period_minutes(workflow_text):
+    """Период cron обёртки в минутах для форм `*/N` в поле минут или часов (`M */H * * *`); иная форма → None (не сверяется)."""
+    import re as _re
+    m = _re.search(r'cron:\s*"([^"]+)"', workflow_text)
+    if not m:
+        return None
+    fields = m.group(1).split()
+    if len(fields) != 5 or fields[2:] != ["*", "*", "*"]:   # календарные ограничения (день/месяц/день недели) — период не постоянен (раунд 5 W3)
+        return None
+    minute, hour = fields[0], fields[1]
+    dec = _re.compile(r"^[0-9]{1,2}$")   # ASCII-десятичные поля с диапазонами (раунд 6 Codex W2): минута 0–59, час 0–23, шаг в диапазоне поля
+    if minute.startswith("*/") and dec.match(minute[2:]) and 1 <= int(minute[2:]) <= 59 and hour == "*":
+        return int(minute[2:])
+    if hour.startswith("*/") and dec.match(hour[2:]) and 1 <= int(hour[2:]) <= 23 and dec.match(minute) and 0 <= int(minute) <= 59:
+        return int(hour[2:]) * 60
+    return None
+
+
 def cmd_check_people(args):
     repo = os.path.abspath(args.repo)
     people_path = os.path.join(repo, PEOPLE_FILE)
@@ -434,10 +452,33 @@ def cmd_check_people(args):
     def _posint(name):
         v = wd.get(name)
         if not isinstance(v, int) or isinstance(v, bool) or v <= 0:
-            raise Refuse("в %s watchdog.%s не положительное целое (часы)" % (BOT_CONFIG_FILE, name))
+            raise Refuse("в %s watchdog.%s не положительное целое" % (BOT_CONFIG_FILE, name))
         return v
     ret = _posint("retention_window_hours"); silence = _posint("unprocessed_update_alarm_hours")
     _posint("stale_session_alarm_hours"); _posint("stale_session_repeat_hours")
+    cm = wd.get("stale_session_cancel_minutes", 0)
+    if not isinstance(cm, int) or isinstance(cm, bool) or cm < 0:
+        raise Refuse("в %s watchdog.stale_session_cancel_minutes не целое >= 0 (минуты; 0 — без автоотмены)" % BOT_CONFIG_FILE)
+    # уведомление о зависшей сессии обязано ПРЕДШЕСТВОВАТЬ автоотмене не меньше чем на период сторожа — иначе
+    # предупреждение попадает лишь в часть прогонов, а отмена приходит без него (раунд 2 W2)
+    if cm > 0:
+        period = _posint("heartbeat_period_minutes")
+        # период — не копия расписания, а сверяемое утверждение: при CI-форме источник — cron обёртки heartbeat
+        # (демон сверяет свой период сам при старте; раунд 3 Codex W7)
+        hb_wf = os.path.join(repo, ".github", "workflows", "workshop-bot-heartbeat.yml")
+        if os.path.exists(hb_wf):
+            cron_period = cron_period_minutes(open(hb_wf, encoding="utf-8").read())
+            if cron_period is None:   # три исхода: сверено / расхождение / не сверяемо — последнее тоже отказ, не молчание (раунд 4 W6)
+                raise Refuse("расписание обёртки сторожа (%s) не разобрано как `*/N` — период heartbeat_period_minutes не сверить" % os.path.relpath(hb_wf, repo))
+            if cron_period != period:
+                raise Refuse("в %s watchdog.heartbeat_period_minutes (%d) не совпадает с расписанием обёртки сторожа (%d мин по cron)" % (BOT_CONFIG_FILE, period, cron_period))
+        else:
+            _say("~ период сторожа: обёртки heartbeat нет (демон) — сверяет демон при старте")
+        if wd.get("stale_session_alarm_hours", 0) * 60 + period > cm:
+            raise Refuse("в %s окно watchdog.stale_session_alarm_hours (%d ч) → stale_session_cancel_minutes (%d мин) меньше периода сторожа heartbeat_period_minutes (%d): предупреждение не гарантировано" % (BOT_CONFIG_FILE, wd.get("stale_session_alarm_hours", 0), cm, period))
+    ldn = cfg.get("last_default_n", 0)
+    if not isinstance(ldn, int) or isinstance(ldn, bool) or ldn < 0:
+        raise Refuse("в %s last_default_n не целое >= 0 (0 — все уникальные заголовки)" % BOT_CONFIG_FILE)
     rr = wd.get("rejection_report_min")
     if not isinstance(rr, int) or isinstance(rr, bool) or rr < 1:
         raise Refuse("в %s watchdog.rejection_report_min не целое >= 1" % BOT_CONFIG_FILE)
