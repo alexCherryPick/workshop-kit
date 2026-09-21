@@ -229,6 +229,34 @@ def _read(path):
         return fh.read()
 
 
+_HEAD_CHUNK = 4096
+
+
+def _read_head(path):
+    """Голова контейнера до конца конверта включительно (`\n---\n`, CRLF терпим) — не дальше одного блока за
+    ним; без открывающего `---` — первый блок; без терминатора — весь файл. Личные уровни (REQ-108 v10, решение
+    alex 1(б)): у ЧУЖИХ контейнеров читается только конверт (обнаружение и привязка спутников по id), тело не
+    читается. IO-ошибка — наружу (владелец неизвестен ⇒ tool_failure, §4.3)."""
+    head = b""
+    with open(path, "rb") as fh:
+        while True:
+            chunk = fh.read(_HEAD_CHUNK)
+            if not chunk:
+                return head
+            head += chunk
+            probe = _strip_bom(head)
+            if not (probe.startswith(b"---\n") or probe.startswith(b"---\r\n")):
+                return head                                   # конверта нет — контейнер пропускается с WARNING
+            if probe.find(b"\n---\n", 4) >= 0 or probe.find(b"\n---\r\n", 4) >= 0:
+                return head
+
+
+def _read_first_line(path):
+    """Первая строка спутника (привязка по id, ядро 04.2.1); тело чужого спутника в личном режиме не читается."""
+    with open(path, "rb") as fh:
+        return fh.readline()
+
+
 def _utf8_check(data, trace, rel):
     """Ядро 01 §1.1: файл — UTF-8; невалидные байты — WARNING (файл читается по А8); BOM — W-FILE-BOM (снимается)."""
     if data.startswith(BOM):
@@ -264,18 +292,24 @@ def _containers(root):
 
 def summarize(root, people, only_person=None, trace=None):
     """→ [(canonical_person, 'YYYY-MM', cents)] по всем контейнерам; only_person — канонический handle (уровни 1–2).
-    trace(kind, rel_path, note) — необязательный приёмник WARNING."""
+    trace(kind, rel_path, note) — необязательный приёмник WARNING.
+    Охват чтения (REQ-108 v10, решение alex 1(б) 2026-09-21): принадлежность — по `person` конверта, не по имени файла,
+    поэтому конверты ВСЕХ контейнеров и первая строка ВСЕХ спутников читаются всегда (обнаружение, привязка по id);
+    тела контейнеров, проверка UTF-8 и заголовки спутников в личном режиме читаются ТОЛЬКО у собственных контейнеров
+    (handle + aliases) — чужие тела не читаются и WARNING по ним не выдаются; уровень 3 читает всё."""
     trace = trace or (lambda *a: None)
     canon = canonical_map(people)
     sums = {}
     paths, sibs = _containers(root)
+    personal = only_person is not None
     # 1) контейнеры: конверт → (who, id, записи после правила Т); id → контейнер для привязки спутников
-    containers = []                            # [(path, who, recs)]
+    containers = []                            # [(path, who, recs)]; recs None — чужой контейнер в личном режиме (тело не читалось)
     by_id = {}                                 # id → индекс контейнера | None (id неоднозначен)
     for path in paths:
         rel = os.path.relpath(path, root)
-        data = _read(path)
-        _utf8_check(data, trace, rel)
+        data = _read_head(path) if personal else _read(path)
+        if not personal:
+            _utf8_check(data, trace, rel)
         fields = envelope_fields(data)
         if fields is None or fields["person"] is None:
             trace("WARN", rel, "контейнер без конверта/person или с повторным ключом конверта пропущен")
@@ -293,14 +327,28 @@ def summarize(root, people, only_person=None, trace=None):
             by_id[cid] = None
         else:
             by_id[cid] = len(containers)
+        if personal and who != only_person:
+            containers.append((path, who, None))          # чужой: конверт прочитан, тело — нет
+            continue
+        if personal:
+            data = _read(path)                            # собственный контейнер — целиком
+            _utf8_check(data, trace, rel)
         containers.append((path, who, _rule_t(_records(_body(data), trace, rel), trace, rel)))
     # 2) спутники: привязка ПО ID (ядро 04.2.2) через comments-of; заголовки — читателем undo (CRLF снят там же)
     bound = {}                                 # индекс контейнера → [заголовки]
     for sib in sibs:
         rel = os.path.relpath(sib, root)
-        data = _read(sib)
+        if personal:
+            first = _read_first_line(sib)
+            cid = comments_of(first)
+            idx = by_id.get(cid) if cid is not None else None
+            if idx is not None and containers[idx][2] is None:
+                continue                                  # спутник чужого контейнера: тело не читается
+            data = _read(sib) if (cid is not None and idx is not None) else first
+        else:
+            data = _read(sib)
+            cid = comments_of(data)
         _utf8_check(data, trace, rel)
-        cid = comments_of(data)
         if cid is None:
             trace("WARN", rel, "спутник непригоден (первая строка не comments-of)")
             continue
@@ -325,7 +373,7 @@ def summarize(root, people, only_person=None, trace=None):
         bound.setdefault(idx, []).extend(hdrs)
     # 3) суммы: действующие отзывы — читателем undo над объединёнными заголовками контейнера
     for idx, (path, who, recs) in enumerate(containers):
-        if only_person is not None and who != only_person:
+        if recs is None or (only_person is not None and who != only_person):
             continue
         hdrs = bound.get(idx)
         gone = set()
