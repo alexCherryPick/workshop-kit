@@ -300,7 +300,7 @@ class PersonalScopeTests(unittest.TestCase):
         with open(c_path, "rb") as fh:
             head = fh.read()
         env_end = head.find(b"\n---\n", 4) + 5
-        big_body = b"".join(b"2026-11-%02d 1.00  x <!--t:c%07x-->\n" % (1 + i % 28, i) for i in range(400))   # > 4096 байт тела
+        big_body = b"".join(b"2026-11-%02d 1.00  x <!--t:c%07x-->\n" % (1 + i % 28, i) for i in range(400))   # большое тело
         with open(c_path, "wb") as fh:
             fh.write(head[:env_end] + big_body)
         s_path = c_path[:-3] + ".comments.md"
@@ -315,7 +315,7 @@ class PersonalScopeTests(unittest.TestCase):
         env2 = head2[:head2.find(b"\n---\n", 4) + 5]
         crlf_env = b"\xef\xbb\xbf" + env2.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
         with open(c2_path, "wb") as fh:
-            fh.write(crlf_env + big_body.replace(b"\n", b"\r\n"))
+            fh.write(crlf_env + b"2026-11-01 1.00  x <!--t:c0000001-->\r\n")                            # МАЛОЕ тело: блочное чтение прочло бы его целиком
         counts = {}
         real_open = builtins.open
         class Counting:
@@ -336,13 +336,39 @@ class PersonalScopeTests(unittest.TestCase):
         finally:
             builtins.open = real_open
         self.assertTrue(rows)
-        BLOCK = 4096                                                                                  # буква амендмента §3: «один блок 4096 байт» — не константа продукта
-        self.assertLessEqual(counts[os.path.abspath(c_path)], env_end + BLOCK)                        # чужое тело не читалось
-        self.assertLessEqual(counts[os.path.abspath(c2_path)], len(crlf_env) + BLOCK)                 # CRLF/BOM-конверт — тот же предел
+        self.assertEqual(counts[os.path.abspath(c_path)], env_end)                                    # чужой контейнер — ровно конверт, ни байта тела
+        self.assertEqual(counts[os.path.abspath(c2_path)], len(crlf_env))                             # CRLF/BOM-конверт — ровно конверт
         self.assertEqual(counts[os.path.abspath(s_path)], len(first))                                 # чужой спутник — первая строка
-        own = next(rel for rel, o in self.owner.items() if o == "dev1")
-        self.assertEqual(counts[os.path.abspath(os.path.join(self.root, own))] % os.path.getsize(os.path.join(self.root, own)), 0)  # своё — целиком (голова + остаток)
-        self.assertGreaterEqual(counts[os.path.abspath(os.path.join(self.root, own))], os.path.getsize(os.path.join(self.root, own)))
+        own = os.path.join(self.root, next(rel for rel, o in self.owner.items() if o == "dev1"))
+        with open(own, "rb") as fh:
+            own_data = fh.read()
+        own_env = own_data.find(b"\n---\n", 4) + 5
+        self.assertEqual(counts[os.path.abspath(own)], own_env + len(own_data))                       # своё — конверт (обнаружение) + целиком
+
+    def test_head_boundary_equals_full_read_boundary(self):
+        # T3-fix раунд 3 (astra, BLOCKER): смешанные LF/CRLF и `---` второй строкой — построчная голова кончалась раньше,
+        # чем envelope_fields видит терминатор; личная сводка теряла собственную запись. Инвариант: для любого входа
+        # envelope_fields(голова) == envelope_fields(весь файл) и суммы личного режима == командного для этого человека.
+        cases = {
+            "mixed_crlf": b"---\nperson: dev1\n---\r\n---\n2026-11-01 1.00  work <!--t:a0a0a0a1-->\n",
+            "empty_then_keys": b"---\n---\nperson: dev1\n---\n2026-11-01 1.00  work <!--t:a0a0a0a2-->\n",
+            "crlf_all": b"\xef\xbb\xbf---\r\nperson: dev1\r\n---\r\n2026-11-01 1.00  work <!--t:a0a0a0a3-->\r\n",
+            "no_terminator": b"---\nperson: dev1\n2026-11-01 1.00  work <!--t:a0a0a0a4-->\n",
+            "terminator_no_lf": b"---\nperson: dev1\n---",
+            "dashes_in_value": b"---\ntitle: a\n---\nperson: dev1\n---\n2026-11-01 1.00  work <!--t:a0a0a0a5-->\n",
+            "no_envelope": b"2026-11-01 1.00  work <!--t:a0a0a0a6-->\n",
+            "three_bytes": b"---",
+            "empty": b"",
+        }
+        for name, raw in cases.items():
+            p = os.path.join(self.root, "time", "TIMESHEET-2026-11-%s.md" % name)
+            with open(p, "wb") as fh:
+                fh.write(raw)
+            self.assertEqual(aggregation.envelope_fields(aggregation._read_head(p)), aggregation.envelope_fields(raw), name)
+        team = [r for r in aggregation.summarize(self.root, self.people) if r[0] == "dev1"]
+        mine = aggregation.summarize(self.root, self.people, "dev1")
+        self.assertEqual(mine, team)
+        self.assertEqual(dict(((m, c) for _p, m, c in mine)).get("2026-11"), 300)   # mixed_crlf, empty_then_keys, crlf_all; dashes_in_value — person за первым терминатором, пропуск
 
     def test_personal_rows_equal_oracle_person_mode(self):
         import subprocess

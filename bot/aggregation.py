@@ -103,16 +103,24 @@ def canonical_map(people):
 
 
 # ------------------------------------------------------------------ контейнер
-def envelope_fields(data):
-    """{'person': str|None, 'id': str|None} из конверта (байты файла) либо None — конверт отсутствует или
-    НЕПРИГОДЕН (повторный `person:`/`id:` — дубль ключа, ERROR валидатора; §4.3: person не выдумывается)."""
+def _envelope_span(data):
+    """ЕДИНСТВЕННЫЙ предикат границ конверта продукта → (normalized_data, end) : end — индекс терминатора `\n---\n`
+    (≥ 4) в нормализованных байтах, -1 — терминатора нет, None — конверта нет. Им пользуются envelope_fields, _body и
+    построчный читатель головы (_read_head): голова кончается ровно там, где этот предикат впервые видит терминатор
+    (T3-fix раунд 3: смешанные LF/CRLF и `---` второй строкой давали расхождение личного и командного режимов)."""
     data = _strip_bom(data)
     if data.startswith(b"---\r\n"):          # CRLF терпим (W-FILE-CRLF — предупреждение ядра, не отказ)
         data = data.replace(b"\r\n", b"\n")
     if not data.startswith(b"---\n"):
-        return None
-    end = data.find(b"\n---\n", 4)
-    if end < 0:
+        return data, None
+    return data, data.find(b"\n---\n", 4)
+
+
+def envelope_fields(data):
+    """{'person': str|None, 'id': str|None} из конверта (байты файла) либо None — конверт отсутствует или
+    НЕПРИГОДЕН (повторный `person:`/`id:` — дубль ключа, ERROR валидатора; §4.3: person не выдумывается)."""
+    data, end = _envelope_span(data)
+    if end is None or end < 0:
         return None
     seen = {"person": 0, "id": 0}
     out = {"person": None, "id": None}
@@ -145,12 +153,9 @@ def comments_of(sibling):
 
 
 def _body(data):
-    data = _strip_bom(data)
-    if data.startswith(b"---\r\n"):
-        data = data.replace(b"\r\n", b"\n")
-    if not data.startswith(b"---\n"):
+    data, end = _envelope_span(data)
+    if end is None:
         return b""
-    end = data.find(b"\n---\n", 4)
     return data[end + 5:] if end >= 0 else b""
 
 
@@ -229,26 +234,21 @@ def _read(path):
         return fh.read()
 
 
-_HEAD_CHUNK = 4096
-
-
 def _read_head(path):
-    """Голова контейнера до конца конверта включительно (`\n---\n`, CRLF терпим) — не дальше одного блока за
-    ним; без открывающего `---` — первый блок; без терминатора — весь файл. Личные уровни (REQ-108 v10, решение
-    alex 1(б)): у ЧУЖИХ контейнеров читается только конверт (обнаружение и привязка спутников по id), тело не
-    читается. IO-ошибка — наружу (владелец неизвестен ⇒ tool_failure, §4.3)."""
-    head = b""
+    """Конверт контейнера ПОСТРОЧНО — до строки, на которой предикат `_envelope_span` впервые видит терминатор
+    (граница РОВНО та же, что у полного чтения); без открывающего `---` — только первая строка; без терминатора — до EOF. Личные уровни (REQ-108 v10, решение alex 1(б)):
+    у ЧУЖИХ контейнеров читается ровно конверт (обнаружение и привязка спутников по id), ни байта тела.
+    IO-ошибка — наружу (владелец неизвестен ⇒ tool_failure, §4.3)."""
     with open(path, "rb") as fh:
+        head = fh.readline()
         while True:
-            chunk = fh.read(_HEAD_CHUNK)
-            if not chunk:
-                return head
-            head += chunk
-            probe = _strip_bom(head)
-            if not (probe.startswith(b"---\n") or probe.startswith(b"---\r\n")):
-                return head                                   # конверта нет — контейнер пропускается с WARNING
-            if probe.find(b"\n---\n", 4) >= 0 or probe.find(b"\n---\r\n", 4) >= 0:
-                return head
+            _d, end = _envelope_span(head)                    # тот же предикат, что у envelope_fields/_body
+            if end is None or end >= 0:
+                return head                                   # конверта нет — контейнер пропускается с WARNING; либо терминатор найден
+            line = fh.readline()
+            if not line:
+                return head                                   # без терминатора — до EOF (конверт непригоден, как и при полном чтении)
+            head += line
 
 
 def _read_first_line(path):
