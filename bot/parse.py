@@ -544,6 +544,30 @@ class Parser(object):
             return out
         if kind == "help":
             return out
+        if kind == "summary":
+            # D15 (REQ-108): `[team] [<N>|all]` — до двух лексем; team/all — точные строчные аргументы; N — тем же
+            # классом лексем, что у позиции last (_lexemes + _RE_INT), плюс ASCII; вторая строка сообщения — не хвост, а ошибка;
+            # порядок причин: multiline → extra_arguments → bad_argument (контракт D15 §4.1)
+            if rest_after_lf.strip():
+                return self._unparsed(base, "summary_multiline")
+            lx = _lexemes(s)
+            out["scope"], out["period"] = "me", "current"
+            if lx and lx[0][1] == "team":
+                out["scope"] = "team"; lx = lx[1:]
+            if len(lx) > 1:
+                return self._unparsed(base, "summary_extra_arguments")
+            if lx:
+                tok = lx[0][1]
+                if tok == "all":
+                    out["period"] = "all"
+                elif _RE_INT.match(tok) and tok.isascii() and int(tok) >= 1:
+                    out["period"] = int(tok)
+                else:
+                    # закрытый перечень причин сводки (контракт D15 §4.1, гл. 01 #grammar-summary): всё, что не `all` и не
+                    # допустимый положительный ASCII-N (0, дробь, знак, Unicode-цифры, слово) — summary_bad_argument;
+                    # причина позиции last `n_not_positive_integer` сюда не заимствуется
+                    return self._unparsed(base, "summary_bad_argument")
+            return out
         if kind == "stop":
             # [<ЧЧ:ММ>] — необязательное время конца (REQ-104): первая лексема аргумента в форме часов;
             # 24:00 допустимо только как ровная полночь. Лексема времени хвостом НЕ является — хвост

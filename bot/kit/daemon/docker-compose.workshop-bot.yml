@@ -8,6 +8,8 @@ services:
     build: ./workshop-bot-daemon
     container_name: workshop-bot
     restart: always
+    init: true                 # init как PID 1 (сигналы, зомби) → TERM уходит entrypoint-у, тот опрашивает ребёнка и досылает ему TERM до завершения
+    stop_grace_period: 90s     # длинный опрос поллера + завершение ребёнка укладываются до SIGKILL
     env_file: .env.workshop
     environment:
       WORKSHOP_REPO_URL: https://github.com/<org>/<repo>.git

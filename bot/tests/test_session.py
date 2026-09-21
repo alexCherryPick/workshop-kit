@@ -52,7 +52,8 @@ def upd(text, uid=1, mid=10, date=1752698400, chat=100000001, cb=False):
 
 
 SAMPLE = {"start_title": TOK["start_title"] + " созвон\nхвост", "start_n": TOK["start_n"] + " 1", "stop": TOK["stop"] + "\nконец", "track": TOK["track"] + " 10:15-12:00 разбор",
-          "free_text": "2ч 40м созвон", "last": TOK["last"], "help": TOK["help"], "confirm": TOK["confirm"] + " 1ч правка", "undo": TOK["undo"] + " 1"}
+          "free_text": "2ч 40м созвон", "last": TOK["last"], "help": TOK["help"], "confirm": TOK["confirm"] + " 1ч правка", "undo": TOK["undo"] + " 1",
+          "summary": TOK["summary"] + " team all"}
 OPEN = {"title": "созвон", "start_text": TOK["start_title"] + " созвон\nхвост", "started_at": 1752698400, "started_at_local": "2025-07-16T22:40:00+02:00",
         "chat_id": 100000001, "start_message_id": 10, "start_update_id": 1, "schema_version": 1}
 
@@ -61,9 +62,12 @@ class TableTests(unittest.TestCase):
     def setUp(self):
         self.P = parse.Parser(REG)
 
-    def test_all_18_cells_primary_outcome_and_next_state(self):
+    def test_all_cells_primary_outcome_and_next_state(self):
+        # D15: число клеток — декартово произведение состояний контракта и позиций реестра (было «18» — ручной счётчик)
         rows = transitions_from_contract()
-        self.assertEqual(len(rows), 18)   # T8: {closed, open} × 9 входов
+        self.assertEqual(len(rows), 2 * len(TOK))
+        self.assertEqual(len(set((s, i) for s, i, _n, _o in rows)), len(rows))   # дублей клеток нет
+        self.assertEqual({i for _s, i, _n, _o in rows}, set(TOK))
         checked = 0
         for state, inp, nxt, outcomes in rows:
             rec = dict(OPEN) if state == "open" else None

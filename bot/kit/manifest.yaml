@@ -3,6 +3,11 @@ kit_version: 0.1.0
 kit_schema_version: 1
 workflows_dir: .github/workflows
 entries:
+  - src: bot/aggregation.py
+    dst: .workshop/bot/aggregation.py
+    role: code
+    sha256: 7b445b94aefc0e677e8beb1e4bc348b1dea0168a4067a2aabc11a9c90d677c2d
+    mode: 0644
   - src: bot/anchor.py
     dst: .workshop/bot/anchor.py
     role: code
@@ -11,7 +16,7 @@ entries:
   - src: bot/comment.py
     dst: .workshop/bot/comment.py
     role: code
-    sha256: 2c29e16d1b1033cf77b36fc727863f6591b2f14702e5d6c6f91d4b5ac3fd2214
+    sha256: 6e1fb34722a1fd656e54497ab0b267902c7c54d50f8d308d85c288361d3e2417
     mode: 0644
   - src: bot/commit.py
     dst: .workshop/bot/commit.py
@@ -36,12 +41,12 @@ entries:
   - src: bot/kit/commands.yaml
     dst: .workshop/bot/kit/commands.yaml
     role: code
-    sha256: ee0ebb830b4fe05659f6032a8f6ee2cb4ca8b8696393d623e5c84c41d24483e5
+    sha256: aea6a7e1e614f6d48d4aac3aec49dddad17ea339ec6e926f32e0b2376550039c
     mode: 0644
   - src: bot/kit/docs/bot-user-guide.ru.md
     dst: .workshop/bot/kit/docs/bot-user-guide.ru.md
     role: code
-    sha256: 2188ac6e0976e5856ae85cf67b72bd62fb30dd810b790f37962692142edfbda2
+    sha256: a53b7ea387439f7e5a8a980d3aef8fcc433d46ee72ea2bd90380300f08b8c738
     mode: 0644
   - src: bot/kit/duration-forms.yaml
     dst: .workshop/bot/kit/duration-forms.yaml
@@ -56,12 +61,12 @@ entries:
   - src: bot/kit/install-steps.yaml
     dst: .workshop/bot/kit/install-steps.yaml
     role: code
-    sha256: 2c9c8c71f84667bc0909a3e19fa3221918b74b33697cd5ee0f5ba0881cb99ec2
+    sha256: dfd2ddffbe8fc08524da2ec4a6f36df80c8e7e8a44e3380ffc0f3a194db285b2
     mode: 0644
   - src: bot/kit/install.py
     dst: .workshop/bot/kit/install.py
     role: code
-    sha256: 62602de9333b4d185482cccf61f2f9545aacb2bb3863439c7e1b8c453bc0b02b
+    sha256: e3d43a68f5f7c18afa802c41546125fcdb43114d8b50d54362c5015288f92ed2
     mode: 0755
   - src: bot/kit/people_handles.py
     dst: .workshop/bot/kit/people_handles.py
@@ -81,7 +86,7 @@ entries:
   - src: bot/kit/templates/bot.yaml
     dst: .workshop/bot.yaml
     role: config
-    sha256: 771b09ca1399f807117e64cc83c7a265f5db9bc1a6e19fa1b8a9d9d624affd68
+    sha256: fcd440be5b84684801bdc159deca350214b21f79747d29114e6bf5532b83bb98
     mode: 0644
   - src: bot/kit/templates/gitattributes
     dst: .gitattributes
@@ -101,22 +106,22 @@ entries:
   - src: bot/kit/workflows/bootstrap.yml
     dst: .github/workflows/workshop-bot-bootstrap.yml
     role: manual
-    sha256: dac326d78ae8892eb1e98726fc2400002eb68aa41785efe2cf8f8a21643aafa1
+    sha256: bf5d2ad4b691ad4a90d515016f32c91e188df72f4f44960dcca27c8e93fea9f5
     mode: 0644
   - src: bot/kit/workflows/heartbeat.yml
     dst: .github/workflows/workshop-bot-heartbeat.yml
     role: workflow
-    sha256: 1a91b8993be33d02cad70d7248903ef2e79e9b4d018b4e134da42dec2c6536ca
+    sha256: b8198277ee41fe7f7f2bd3215df52e63214695e911f227c2d20c024b38cec6c0
     mode: 0644
   - src: bot/kit/workflows/poller.yml
     dst: .github/workflows/workshop-bot-poller.yml
     role: workflow
-    sha256: d77702f915dd665b0131e1ec400ecbdbe8ab480e1e0d1aa23c9c1338ef50fc87
+    sha256: 9ca96a5f18fd7c11ab68f2ce07db27eb4c468743316a3abb378a3d5728690ea8
     mode: 0644
   - src: bot/lastn.py
     dst: .workshop/bot/lastn.py
     role: code
-    sha256: 3834ab71e3552cb148445c1d15f947aa313f5f12c3afa3e900986f1fe3cdbec6
+    sha256: feea1c2488d94e468976bf826259fa51d5745815e3a491bdc627ca2abb21ddc1
     mode: 0644
   - src: bot/line.py
     dst: .workshop/bot/line.py
@@ -126,12 +131,12 @@ entries:
   - src: bot/parse.py
     dst: .workshop/bot/parse.py
     role: code
-    sha256: 30021a9f309313cae52eae2767cd2ae4a8cd4a91db2eef62e6909fa519fc10ed
+    sha256: d3430eeba2fb29ad371e1fff42fc3902282bd541547666e22b9e81e68d7aff8e
     mode: 0644
   - src: bot/poll.py
     dst: .workshop/bot/poll.py
     role: code
-    sha256: 662587fa1be9d252b854f4cb89bdf545382993c87c0082276111198ea4fe935c
+    sha256: e75a906c7146b9096c74b8dc6f11328ae8fb044332462a7ce0d590d872cd32f8
     mode: 0644
   - src: bot/secrets.py
     dst: .workshop/bot/secrets.py
@@ -141,7 +146,7 @@ entries:
   - src: bot/session.py
     dst: .workshop/bot/session.py
     role: code
-    sha256: d4fb398a7fdb03528ab4de27d64e057ed9e7ce4f95e2524dbaf7022b1b9850ff
+    sha256: 5ecc554f15d275a20c80448c17cceeb0b28fcff0cca19e25442ec89987a17607
     mode: 0644
   - src: bot/state_store.py
     dst: .workshop/bot/state_store.py
@@ -156,7 +161,7 @@ entries:
   - src: bot/undo.py
     dst: .workshop/bot/undo.py
     role: code
-    sha256: 1f23a0c4b5ee703a8d209dabc1f29e9da28b7bce91abf6a3ef0e52ec233c70c9
+    sha256: e6bd26e3e7b300ab883fb17674b6eb063b77e3098429cd5c50f543f12ba9efd5
     mode: 0644
   - src: bot/yamlmini.py
     dst: .workshop/bot/yamlmini.py

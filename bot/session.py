@@ -200,6 +200,12 @@ def decide(record, parsed, person, config, last_titles=None, tail_of=None):
     if pos == "help":
         return {"outcome": "help_given", "new_record": UNCHANGED, "lines": [], "comments": [], "reply": {}}
 
+    if pos == "summary":
+        # D15 (REQ-108): сводка часов — чистое чтение табелей (bot/aggregation.py, считает поллер); состояние учёта
+        # не трогается в обоих состояниях; охват и период — из разбора (парсер), «сейчас» — message.date отправителя
+        return {"outcome": "summary_given", "new_record": UNCHANGED, "lines": [], "comments": [],
+                "reply": {"scope": parsed.get("scope", "me"), "period": parsed.get("period", "current")}}
+
     if pos == "undo":
         # T8: клетка {closed, open} × undo — состояние учёта НЕ трогается; сам исход (retracted / unretracted /
         # reask_undo_not_found / identical_repeat) зависит от файлов и решается писателем (poll._handle_undo,

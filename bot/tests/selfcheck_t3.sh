@@ -16,14 +16,55 @@ FAILS=0; PASSES=0
 ok() { echo "  PASS  $1"; PASSES=$((PASSES+1)); }
 bad() { echo "  FAIL  $1"; FAILS=$((FAILS+1)); }
 
-echo "== 0. юнит-оракулы T3 (test_poll, test_state_store, test_commit) + таблица offset по 24 исходам"
+# [АМЕНДМЕНТ D15, 2026-09-20: offset по множеству исходов реестра, не по счётчикам.]
+echo "== 0. юнит-оракулы T3 (test_poll, test_state_store, test_commit) + таблица offset по исходам реестра"
 D09_OFFSET_TABLE="$WORK/offset-table.txt" $PY -m unittest bot.tests.test_poll bot.tests.test_state_store bot.tests.test_commit > "$WORK/ut.txt" 2>&1; RC=$?
 grep -E '^(Ran|OK|FAILED)' "$WORK/ut.txt" | sed 's/^/  /'
 [ $RC -eq 0 ] && ok "unittest T3" || { bad "unittest T3"; grep -E '^(FAIL|ERROR):' "$WORK/ut.txt" | sed 's/^/    /'; }
 [ -f "$WORK/offset-table.txt" ] && cat "$WORK/offset-table.txt" | sed 's/^/  /'
-N_ADV=$(grep -c 'advances=advance' "$WORK/offset-table.txt" 2>/dev/null); N_HOLD=$(grep -c 'advances=hold' "$WORK/offset-table.txt" 2>/dev/null); N_NA=$(grep -c 'неприменимо' "$WORK/offset-table.txt" 2>/dev/null)
-echo "  таблица: advance=$N_ADV hold=$N_HOLD неприменимо=$N_NA (всего $((N_ADV+N_HOLD+N_NA)))"
-[ $((N_ADV+N_HOLD+N_NA)) -eq 24 ] && [ "$N_HOLD" -eq 4 ] && [ "$N_NA" -eq 2 ] && ok "двадцать четыре исхода исполнены (T8: +3; REQ-103: +1 сторожевой); hold ровно у 10–13, неприменимо у 18 и 24" || bad "таблица offset неполна"
+# [АМЕНДМЕНТ D15, 2026-09-20: независимый разбор сырого реестра и исполненной таблицы.]
+$PY - "$TW" "$WORK/offset-table.txt" <<'PYOFFSET' && ok "исходы и offset-классы исполнены по реестру" || bad "таблица offset неполна или расходится с реестром"
+import collections, pathlib, re, sys
+raw = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+section = re.search(r"^outcomes:\n(.*?)(?=^[a-zA-Z_]+:)", raw, re.M | re.S)
+def fail(msg):
+    print("  !! " + msg); sys.exit(1)
+if section is None:
+    fail("нет outcomes в реестре")
+expected = {}
+ordinals = set()
+for block in re.split(r"(?=^  - ordinal:)", section.group(1), flags=re.M):
+    if not re.match(r"^  - ordinal:", block): continue
+    ordinal = re.search(r"^  - ordinal: ([0-9]+)$", block, re.M)
+    ident = re.search(r"^    id: ([a-z_][a-z0-9_]*)$", block, re.M)
+    offset = re.search(r"^    offset: (advance|hold|not_applicable)$", block, re.M)
+    if not (ordinal and ident and offset): fail("неполный исход реестра")
+    name = ident.group(1); number = int(ordinal.group(1))
+    if name in expected or number in ordinals: fail("дубль исхода реестра: %s / %d" % (name, number))
+    expected[name] = (number, offset.group(1)); ordinals.add(number)
+if not expected: fail("пустой реестр исходов")
+path = pathlib.Path(sys.argv[2])
+if not path.is_file(): fail("нет исполненной offset-table (test_table не прошёл — см. test_poll); сверять не с чем")
+actual = {}; errors = []
+for line in path.read_text(encoding="utf-8").split("\n"):
+    if not line.strip() or line.lstrip().startswith("offset-table ("): continue
+    m = re.fullmatch(r"\s*([0-9]+)\s+([a-z_][a-z0-9_]*)\s+(.+)", line)
+    if not m:
+        errors.append("неразобранная строка таблицы: " + repr(line)); continue
+    number, name, rest = int(m.group(1)), m.group(2), m.group(3)
+    cls = re.search(r"\badvances=(advance|hold|not_applicable)\s*$", rest)
+    kind = cls.group(1) if cls else ("not_applicable" if rest.startswith("неприменимо ") else None)
+    if name in actual: errors.append("повтор исполненного исхода: " + name)
+    if kind is None: errors.append("неразобранный offset: " + name)
+    actual[name] = (number, kind)
+for name in sorted(set(expected) | set(actual)):
+    if actual.get(name) != expected.get(name): errors.append("%s: исполнено=%r реестр=%r" % (name, actual.get(name), expected.get(name)))
+print("  исходов: реестр=%d исполнено=%d" % (len(expected), len(actual)))
+for label, rows in (("реестр", expected), ("исполнено", actual)):
+    print("  %s: %s" % (label, dict(sorted(collections.Counter(v[1] for v in rows.values() if v[1]).items()))))
+for error in errors: print("  !! " + error)
+sys.exit(bool(errors))
+PYOFFSET
 
 echo "== 1. пиннованные фикстуры батчей: манифест (путь, sha256) — режим сверки; каждый батч через стенд"
 $PY - <<'PY' && ok "фикстуры: манифест сверен, ожидания исходов и число коммитов-записей совпали" || bad "фикстуры"
@@ -293,7 +334,8 @@ try:
 finally:
     s.close()
 # ретраи с дефолтным бэкоффом конфига комплекта — числа из прогона
-tpl = yamlmini.load_file("bot/kit/templates/bot.yaml"); attempts = tpl["retry"]["push_max_attempts"]; backoff = tpl["retry"]["push_backoff_seconds"]; retention_h = 24
+# [АМЕНДМЕНТ D15, 2026-09-20: окно retention также берётся из настройки, не константой прогона.]
+tpl = yamlmini.load_file("bot/kit/templates/bot.yaml"); attempts = tpl["retry"]["push_max_attempts"]; backoff = tpl["retry"]["push_backoff_seconds"]; retention_h = tpl["watchdog"]["retention_window_hours"]
 s = Stand(); cfg = yamlmini.load_file(os.path.join(s.root, ".workshop", "bot.yaml")); cfg["retry"] = tpl["retry"]; s.deny_push(True); waits = []
 try:
     t = FakeTransport([msg("1ч ретраи")]); ctx = poll.Ctx(s.root, t, cfg, botrepo.VALIDATOR, bot_username="x", sleeper=waits.append)

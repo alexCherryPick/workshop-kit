@@ -40,8 +40,12 @@ def steps_count(path):
 
 
 class ProjectionTests(unittest.TestCase):
-    def test_registry_has_nine_positions(self):
-        self.assertEqual(len(registry_names(COMMANDS)), 9)   # T8: +undo
+    def test_registry_positions_unique_and_nonempty(self):
+        # D15: число позиций — свойство реестра, не константа теста (прежнее «ровно 9» — ручной счётчик);
+        # инвариант: имена уникальны, реестр непуст, и render печатает ровно это число
+        names = registry_names(COMMANDS)
+        self.assertTrue(names)
+        self.assertEqual(len(names), len(set(names)))
 
     def test_help_short_block_cover_every_position(self):
         names = registry_names(COMMANDS)
@@ -51,7 +55,7 @@ class ProjectionTests(unittest.TestCase):
             for n in names:
                 self.assertIn(n, out, "%s: нет позиции %r" % (sub, n))
         rc, out = run("help")
-        self.assertIn("позиций в реестре: 9", out)
+        self.assertIn("позиций в реестре: %d" % len(names), out)   # D15: число — из реестра
 
     def test_deterministic(self):
         for sub in ("help", "short", "commands-block", "steps-block"):

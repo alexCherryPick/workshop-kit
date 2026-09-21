@@ -44,22 +44,20 @@ UT=$($PY -m unittest discover -s bot/tests 2>&1 | tail -3)
 echo "$UT" | sed 's/^/  /'
 echo "$UT" | grep -q '^OK' && ok "unittest: OK" || bad "unittest: есть провалы"
 
-echo "== 2. перечень исходов: ровно 24 (T8: +3; REQ-103: +1), пять полей, признак коммента, не коды валидатора"
+# [АМЕНДМЕНТ D15, 2026-09-20: счётчики исходов производны от реестра.]
+echo "== 2. перечень исходов из реестра, обязательные поля, признак коммента, не коды валидатора"
 "$BIN" --dump-identifiers --kind code < /dev/null > "$WORK/codes.txt"
 echo "  дамп кодов валидатора: $(wc -l < "$WORK/codes.txt" | tr -d ' ') строк"
-$PY - "$TW" "$WORK/codes.txt" <<'EOF' && ok "исходы: 24 позиции × 5 полей, признак у всех, ∩ дамп = ∅" || bad "исходы: см. выше"
+$PY - "$TW" "$WORK/codes.txt" <<'EOF' && ok "исходы: уникальные id и ординалы, обязательные поля, ∩ дамп = ∅" || bad "исходы: см. выше"
 import sys, yamlmini
 tw = yamlmini.load_file(sys.argv[1]); codes = set(open(sys.argv[2]).read().split())
 outs = tw["outcomes"]; ids = [o["id"] for o in outs]
 print("  исходов в реестре: %d" % len(outs))
-must = ["identical_repeat","recorded_with_warning","run_refused","tool_failure","non_input","session_opened",
-        "session_closed_recorded","reask_start_already_open","reask_stop_without_open","session_stale","session_cancelled","help_given","last_list_given"]
+# [АМЕНДМЕНТ D15, 2026-09-20: без копии перечня и числа исходов.]
 bad = []
-if len(outs) != 24: bad.append("число исходов %d != 24" % len(outs))
-if len(set(ids)) != 24: bad.append("дубли id")
-if sorted(o["ordinal"] for o in outs) != list(range(1, 25)): bad.append("ординалы не 1..24")
-for m in must:
-    if m not in ids: bad.append("нет обязательного исхода %s" % m)
+if not outs: bad.append("пустой реестр исходов")
+if len(set(ids)) != len(ids): bad.append("дубли id")
+if sorted(o["ordinal"] for o in outs) != list(range(1, len(outs) + 1)): bad.append("ординалы не непрерывны")
 for o in outs:
     for f in ("reply","offset","transition","comment","address"):
         if not o.get(f): bad.append("исход %s: поле %s пусто" % (o["id"], f))
@@ -80,9 +78,16 @@ $PY - "$TW" bot/kit/commands.yaml <<'EOF' && ok "переходы: все кле
 import sys, yamlmini
 tw = yamlmini.load_file(sys.argv[1]); cmd_docs = yamlmini.load_file(sys.argv[2])["commands"]; cmds = [c["id"] for c in cmd_docs]
 pos_outcomes = dict((c["id"], set(c["outcomes"])) for c in cmd_docs)
-states = tw["session_states"]; cells = dict(((t["state"], t["input"]), t) for t in tw["transitions"])
+# [АМЕНДМЕНТ D15, 2026-09-20: точное покрытие, дубли проверяются ДО преобразования в dict.]
+states = tw["session_states"]; rows = tw["transitions"]
+keys = [(t["state"], t["input"]) for t in rows]
+cells = dict(zip(keys, rows))
 ids = set(o["id"] for o in tw["outcomes"]); bad = []
-expected = [(s, c) for s in states for c in cmds]
+expected = [(s, c) for s in states for c in cmds]   # states — из реестра (страж ниже держит множество {closed, open}); литерал не дублируется
+if not cmds or len(cmds) != len(set(cmds)): bad.append("пустые/повторные id команд")
+if set(states) != {"closed", "open"} or len(states) != len(set(states)): bad.append("состояния не closed/open")
+if len(keys) != len(set(keys)): bad.append("дубли клеток transitions")
+if set(keys) != set(expected): bad.append("покрытие transitions: %s" % sorted(set(keys) ^ set(expected)))
 print("  состояний: %d, входов реестра: %d, клеток ожидается: %d, в таблице: %d" % (len(states), len(cmds), len(expected), len(cells)))
 prec = tw["transition_precedence"]; update_ids = [o["id"] for o in tw["outcomes"] if o["source"] == "update" and o["id"] != "non_input"]
 for key in expected:
@@ -108,7 +113,7 @@ EOF
 echo "== 4. реестр команд — единственный источник; генератор детерминирован и чувствителен"
 N_CMD=$($PY -c "import yamlmini;print(len(yamlmini.load_file('bot/kit/commands.yaml')['commands']))")
 echo "  реестр команд: позиций $N_CMD"
-[ "$N_CMD" -eq 9 ] && ok "реестр команд: ровно 9 позиций (T8: +отзыв)" || bad "реестр команд: $N_CMD позиций"
+# [АМЕНДМЕНТ D15, 2026-09-20: уникальность id и точное произведение проверены блоком переходов выше; число только печатается.]
 $PY -c "import yamlmini;c=yamlmini.load_file('bot/kit/commands.yaml')['commands'];import sys;sys.exit(0 if not [x for x in c if x['time_bearing'] and x['callback_allowed']] else 1)" \
   && ok "ни одна позиция time_bearing: true не исполнима кнопкой" || bad "time_bearing+callback_allowed найдены"
 for sub in help short commands-block steps-block; do
@@ -149,7 +154,8 @@ for h in sorted(set(hits)): print("  !! " + h)
 sys.exit(1 if hits else 0)
 EOF
 
-echo "== 5. инструкция: по-русски, маркеры, пять именованных разделов REQ-091"
+# [АМЕНДМЕНТ D15, 2026-09-20: число разделов также печатается из guide_sections.]
+echo "== 5. инструкция: по-русски, маркеры, разделы реестра REQ-091"
 G=bot/kit/docs/bot-user-guide.ru.md
 CYR=$($PY -c "import re;print(len(re.findall('[А-Яа-яЁё]', open('$G',encoding='utf-8').read())))")
 echo "  кириллических букв в инструкции: $CYR"
@@ -157,7 +163,8 @@ echo "  кириллических букв в инструкции: $CYR"
 OPEN=$(grep -c 'generated:[a-z]*:start' "$G"); CLOSE=$(grep -c 'generated:[a-z]*:end' "$G")
 echo "  маркеров start=$OPEN end=$CLOSE"
 [ "$OPEN" -eq "$CLOSE" ] && [ "$OPEN" -eq 2 ] && ok "маркеры парные" || bad "маркеры непарные"
-$PY - "$TW" "$G" <<'EOF' && ok "пять разделов REQ-091 присутствуют именованно" || bad "разделы инструкции"
+# [АМЕНДМЕНТ D15, 2026-09-20: ожидание разделов — guide_sections, без счётчика в сообщении.]
+$PY - "$TW" "$G" <<'EOF' && ok "разделы реестра REQ-091 присутствуют именованно" || bad "разделы инструкции"
 import sys, yamlmini
 secs = yamlmini.load_file(sys.argv[1])["guide_sections"]; g = open(sys.argv[2], encoding="utf-8").read()
 missing = [s for s in secs if ("<!-- section: %s -->" % s) not in g]

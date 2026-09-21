@@ -269,6 +269,449 @@ class LayoutTests(unittest.TestCase):
         self.assertIn("WORKSHOP_UNKNOWN", out)
 
 
+class LaunchFormTests(unittest.TestCase):
+    """D15 T4 (REQ-100, контракт §4.10): форма запуска launch: ci|daemon — раскладка, реестр управляемых обёрток
+    в kit-version.yaml, удаления в плане/диффе/dry-run/коммите, check-people без манифеста, отказы на противоречии.
+    Ожидания — из файлов репозитория и git (ls-files, show, status), не из функций install.py."""
+    WF = (".github/workflows/workshop-bot-poller.yml", ".github/workflows/workshop-bot-heartbeat.yml")
+    BOOT = ".github/workflows/workshop-bot-bootstrap.yml"
+
+    def setUp(self):
+        self.k = _Kit()
+        # обёртки с заполненными пинами (как в релизном коммите канала выдачи) → роль workflow ставится
+        for name in ("poller.yml", "heartbeat.yml"):
+            w = os.path.join(self.k.kit, "workflows", name)
+            with open(w, encoding="utf-8") as fh:
+                t = fh.read()
+            with open(w, "w", encoding="utf-8") as fh:
+                fh.write(t.replace("PIN-ACTION-CHECKOUT-SHA", "a" * 40).replace("PIN-KIT-COMMIT-SHA", "b" * 40))
+        self.entries = self.k.entries + [("bot/kit/workflows/poller.yml", self.WF[0], "workflow"),
+                                         ("bot/kit/workflows/heartbeat.yml", self.WF[1], "workflow")]
+        self.k.write_manifest(entries=self.entries)
+        self.repo = tempfile.mkdtemp(prefix="repo-")
+        git(self.repo, "init", "-q")
+        place_people_map(self.repo)
+        os.makedirs(os.path.join(self.repo, ".github", "workflows"))
+        shutil.copy(os.path.join(_KIT, "workflows", "bootstrap.yml"), os.path.join(self.repo, self.BOOT))
+        shutil.copy(os.path.join(_KIT, "templates", "bot.yaml"), os.path.join(self.repo, ".workshop", "bot.yaml"))
+        self._commit_all("base")
+
+    def tearDown(self):
+        self.k.cleanup()
+        shutil.rmtree(self.repo, ignore_errors=True)
+
+    def _commit_all(self, msg):
+        git(self.repo, "add", "-A")
+        git(self.repo, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-qm", msg)
+
+    def _set_launch(self, value):
+        p = os.path.join(self.repo, ".workshop", "bot.yaml")
+        with open(p, encoding="utf-8") as fh:
+            lines = [l for l in fh.read().split("\n") if not l.startswith("launch:")]
+        if value is not None:
+            lines.insert(0, "launch: %s" % value)
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines))
+
+    def _kv(self):
+        with open(os.path.join(self.repo, ".workshop", "kit-version.yaml"), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _exists(self, rel):
+        return os.path.exists(os.path.join(self.repo, rel))
+
+    def _tracked(self, rel):
+        return git(self.repo, "ls-files", "--error-unmatch", "--", rel).returncode == 0
+
+    def test_template_declares_ci_and_layout_registers_destinations(self):
+        with open(os.path.join(_KIT, "templates", "bot.yaml"), encoding="utf-8") as fh:
+            self.assertIn("\nlaunch: ci\n", fh.read())
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("форма запуска: ci", out)
+        for w in self.WF:
+            self.assertTrue(self._exists(w), w)
+        kv = self._kv()
+        self.assertIn("launch: ci\n", kv)
+        self.assertIn("workflow_destinations:\n  - %s\n  - %s\n" % tuple(sorted(self.WF)), kv)
+        for key in ("kit_version: 9.9.9", "kit_schema_version: 1", "manifest_schema_version: 1"):
+            self.assertIn(key, kv)
+        rc, out = self.k.install(self.repo, "check-people")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("форма запуска: ci (раскладка: ci)", out)
+
+    def test_absent_field_is_ci_layout_with_soft_note(self):
+        self._set_launch(None)
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("launch в .workshop/bot.yaml не задан", out)
+        self.assertTrue(all(self._exists(w) for w in self.WF))
+        self.assertIn("launch: ci\n", self._kv())
+        rc, out = self.k.install(self.repo, "check-people")
+        self.assertEqual(rc, 0, out)                       # мягкая ветвь, не отказ
+        self.assertIn("не задан", out)
+
+    def test_invalid_value_refused_before_any_write(self):
+        self._set_launch("cron")
+        before = set(os.listdir(os.path.join(self.repo, ".github", "workflows")))
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 2, out)
+        self.assertIn("launch = 'cron'", out)
+        self.assertEqual(set(os.listdir(os.path.join(self.repo, ".github", "workflows"))), before)
+        self.assertFalse(self._exists(".workshop/kit-version.yaml"))
+        self.assertEqual(git(self.repo, "status", "--porcelain").stdout.strip(), "M .workshop/bot.yaml")
+        rc, out = self.k.install(self.repo, "check-people")
+        self.assertEqual(rc, 2, out)
+
+    def test_daemon_first_install_creates_no_workflows_keeps_bootstrap(self):
+        self._set_launch("daemon")
+        self._commit_all("daemon")
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("форма запуска: daemon", out)
+        self.assertFalse(any(self._exists(w) for w in self.WF))
+        self.assertTrue(self._exists(self.BOOT))
+        kv = self._kv()
+        self.assertIn("launch: daemon\n", kv)
+        for w in self.WF:
+            self.assertIn("  - %s\n" % w, kv)               # реестр знает назначения и без файлов
+        rc, out = self.k.install(self.repo, "commit")
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(git(self.repo, "status", "--porcelain").stdout, "")
+        rc, out = self.k.install(self.repo, "check-people")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("лежит 0", out)
+
+    def test_ci_to_daemon_removes_managed_in_plan_diff_dryrun_and_commit(self):
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        rc, out = self.k.install(self.repo, "commit"); self.assertEqual(rc, 0, out)
+        self.assertTrue(all(self._tracked(w) for w in self.WF))
+        # чужой workflow заказчика и посторонний staged-файл — не трогаются и не захватываются
+        foreign = os.path.join(self.repo, ".github", "workflows", "deploy.yml")
+        with open(foreign, "w", encoding="utf-8") as fh:
+            fh.write("name: deploy\non: push\njobs: {}\n")
+        self._commit_all("foreign workflow")
+        self._set_launch("daemon")
+        self._commit_all("switch")                          # строка launch: daemon закоммичена ДО bootstrap (порядок T7)
+        with open(os.path.join(self.repo, "notes2.txt"), "w", encoding="utf-8") as fh:
+            fh.write("staged by customer 2\n")
+        git(self.repo, "add", "--", "notes2.txt")
+        # dry-run: удаления в плане, ничего не записано
+        rc, out = self.k.install(self.repo, "layout", "--dry-run")
+        self.assertEqual(rc, 0, out)
+        for w in self.WF:
+            self.assertIn("- %s (workflow: удаляется" % w, out)
+            self.assertIn("--- a/%s" % w, out)               # дифф удаления
+            self.assertTrue(self._exists(w), w)
+        self.assertIn("remove=2", out)
+        self.assertNotIn("launch: daemon", self._kv())
+        # реальная раскладка
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 0, out)
+        self.assertFalse(any(self._exists(w) for w in self.WF))
+        self.assertTrue(self._exists(self.BOOT))
+        self.assertTrue(self._exists(".github/workflows/deploy.yml"))
+        self.assertIn("launch: daemon\n", self._kv())
+        for w in self.WF:
+            self.assertIn("  - %s\n" % w, self._kv())         # путь не забыт после удаления
+        # коммит: tracked-удаления точными путями; посторонний staged-файл остаётся в индексе, не в коммите
+        rc, out = self.k.install(self.repo, "commit")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("удаления в коммите", out)
+        shown = git(self.repo, "show", "--name-status", "--format=", "HEAD").stdout
+        for w in self.WF:
+            self.assertIn("D\t%s" % w, shown)
+        self.assertIn("M\t.workshop/kit-version.yaml", shown)
+        self.assertNotIn("notes2.txt", shown)
+        self.assertNotIn("deploy.yml", shown)
+        self.assertFalse(any(self._tracked(w) for w in self.WF))
+        self.assertEqual(git(self.repo, "status", "--porcelain").stdout.strip(), "A  notes2.txt")
+        # второй layout — без изменений; check-people при daemon — ok, обёртки не вернулись
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("без изменений", out)
+        self.assertFalse(any(self._exists(w) for w in self.WF))
+        rc, out = self.k.install(self.repo, "check-people")
+        self.assertEqual(rc, 0, out)
+
+    def test_daemon_with_present_wrapper_is_rc2_and_layout_clears_it(self):
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        rc, out = self.k.install(self.repo, "commit"); self.assertEqual(rc, 0, out)
+        self._set_launch("daemon")
+        rc, out = self.k.install(self.repo, "check-people")
+        self.assertEqual(rc, 2, out)
+        self.assertIn("два читателя курсора", out)
+        self.assertIn(self.WF[0], out)
+        self.assertIn("форма запуска изменена", out)
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        rc, out = self.k.install(self.repo, "check-people")
+        self.assertEqual(rc, 0, out)
+        # обёртка появилась снова руками (старый bootstrap) — реестр её помнит → снова rc=2
+        with open(os.path.join(self.repo, self.WF[1]), "w", encoding="utf-8") as fh:
+            fh.write("name: stale\n")
+        rc, out = self.k.install(self.repo, "check-people")
+        self.assertEqual(rc, 2, out)
+        self.assertIn(self.WF[1], out)
+
+    def test_daemon_to_ci_lays_workflows_again(self):
+        self._set_launch("daemon")
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        self._set_launch("ci")
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("последняя раскладка: daemon", out)
+        self.assertTrue(all(self._exists(w) for w in self.WF))
+        self.assertIn("launch: ci\n", self._kv())
+
+    def test_check_people_from_installed_checkout_without_manifest(self):
+        # у заказчика check-people зовётся из .workshop/bot/kit (демон) — манифеста там нет: источник — kit-version.yaml
+        self._set_launch("daemon")
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        kit_copy = tempfile.mkdtemp(prefix="installed-kit-")
+        try:
+            shutil.copytree(self.k.kit, os.path.join(kit_copy, "kit"), ignore=shutil.ignore_patterns("manifest.yaml", "__pycache__"))
+            for f in ("yamlmini.py", "identity.py", "tg.py"):
+                shutil.copy(os.path.join(_BOT, f), kit_copy)
+            self.assertFalse(os.path.exists(os.path.join(kit_copy, "kit", "manifest.yaml")))
+            inst = os.path.join(kit_copy, "kit", "install.py")
+            rc, out = run([inst, "--kit", os.path.join(kit_copy, "kit"), "--repo", self.repo, "check-people"])
+            self.assertEqual(rc, 0, out)
+            self.assertIn("лежит 0", out)
+            with open(os.path.join(self.repo, self.WF[0]), "w", encoding="utf-8") as fh:
+                fh.write("name: stale\n")
+            rc, out = run([inst, "--kit", os.path.join(kit_copy, "kit"), "--repo", self.repo, "check-people"])
+            self.assertEqual(rc, 2, out)
+            self.assertIn(self.WF[0], out)
+        finally:
+            shutil.rmtree(kit_copy, ignore_errors=True)
+
+    def test_old_kit_version_without_fields_is_soft_note_and_next_layout_fills(self):
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        with open(os.path.join(self.repo, ".workshop", "kit-version.yaml"), "w", encoding="utf-8") as fh:
+            fh.write("kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\n")   # установка до D15
+        self._set_launch("daemon")
+        rc, out = self.k.install(self.repo, "check-people")
+        self.assertEqual(rc, 0, out)                       # метаданных нет — заметка, не строгий отказ и не ручной список
+        self.assertIn("метаданные формы запуска/обёрток отсутствуют", out)
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("workflow_destinations:", self._kv())
+        self.assertFalse(any(self._exists(w) for w in self.WF))
+
+    def test_corrupt_metadata_and_unsafe_destination_refused(self):
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        kv = os.path.join(self.repo, ".workshop", "kit-version.yaml")
+        base = "kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nmanual_destinations: []\n"
+        cases = {
+            base + "launch: cron\nworkflow_destinations: []\n": "launch = 'cron' повреждён",
+            base + "launch: daemon\nworkflow_destinations: nope\n": "не список путей",
+            base + "launch: daemon\nworkflow_destinations:\n  - ../../etc/cron.d/x\n": "небезопасный путь",
+            base + "launch: daemon\nworkflow_destinations:\n  - .git/hooks/post-checkout\n": "небезопасный путь",
+            base + "launch: daemon\nworkflow_destinations:\n  - a.yml\n  - a.yml\n": "повторы",
+            base + "launch: daemon\nworkflow_destinations:\n  - %s\n" % self.BOOT: "ручной файл",
+            # T4 раунд 2: частичный/повреждённый набор новых полей — отказ, не пустой список и не мягкая ветвь
+            "kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nlaunch: daemon\nworkflow_destinations: []\n": "неполны",
+            "kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nmanual_destinations: broken\n": "неполны",
+            base + "launch: daemon\nworkflow_destinations:\n  - a.yml\n  - A.yml\n": "повторы",
+            base + "launch: daemon\nworkflow_destinations:\n  - .GitHub/workflows/workshop-bot-bootstrap.yml\n": "ручной файл",
+            base + "launch: daemon\nworkflow_destinations:\n  - .Git/probe\n": "небезопасный путь",
+            base + "launch: daemon\nworkflow_destinations:\n  - .github/workflows/%s.yml\n" % ("x" * 256): "небезопасный путь",
+            base + "launch: daemon\nworkflow_destinations:\n  - .github\n": "каталог",
+        }
+        for text, needle in cases.items():
+            with open(kv, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            for cmd in ("layout", "check-people"):
+                rc, out = self.k.install(self.repo, cmd)
+                self.assertEqual(rc, 2, (cmd, text, out))
+                self.assertIn(needle, out, (cmd, text))
+            self.assertTrue(self._exists(self.BOOT))
+            self.assertTrue(all(self._exists(w) for w in self.WF))   # отказ до мутаций: ничего не удалено
+
+    def test_path_aliases_globs_and_git_are_refused_before_any_deletion(self):
+        # T4 раунд 1 (astra, BLOCKER ×3): эквивалентное написание пути (`./`), `.git/` через `./`, глоб `*` как pathspec —
+        # каноническая форма обязательна; отказ ДО удаления, bootstrap и содержимое .git целы
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        self._set_launch("daemon")
+        kv = os.path.join(self.repo, ".workshop", "kit-version.yaml")
+        base = "kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nlaunch: ci\nmanual_destinations: []\n"
+        probe = os.path.join(self.repo, ".git", "probe"); open(probe, "w").write("x")
+        for dest in ("./" + self.BOOT, "./.git/probe", ".github/workflows/*.yml", ".github//workflows/a.yml", ".github/workflows/a.yml/",
+                     "sub/.git/hooks/x", ".github/workflows/:(top)a.yml", ".github/workflows/a?.yml", ".github/workflows/a[1].yml"):
+            with open(kv, "w", encoding="utf-8") as fh:
+                fh.write(base + "workflow_destinations:\n  - \"%s\"\n" % dest)
+            for cmd in ("layout", "check-people", "commit"):
+                rc, out = self.k.install(self.repo, cmd)
+                self.assertEqual(rc, 2, (dest, cmd, out)); self.assertIn("небезопасный путь", out, (dest, cmd))
+            self.assertTrue(self._exists(self.BOOT), dest); self.assertTrue(os.path.exists(probe), dest)
+            self.assertTrue(all(self._exists(w) for w in self.WF), dest)
+
+    def test_manual_protection_without_manifest_and_manifest_duplicates(self):
+        # T4 раунд 1 (astra, MAJOR ×2): manual_destinations в kit-version защищают bootstrap и без манифеста; повтор
+        # назначения в манифесте — отказ, не set()
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        self.assertIn("manual_destinations:\n  - %s\n" % self.BOOT, self._kv())
+        kv = os.path.join(self.repo, ".workshop", "kit-version.yaml")
+        with open(kv, "w", encoding="utf-8") as fh:
+            fh.write("kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nlaunch: ci\nworkflow_destinations:\n  - %s\nmanual_destinations:\n  - %s\n" % (self.BOOT, self.BOOT))
+        kit_copy = tempfile.mkdtemp(prefix="installed-kit-")
+        try:
+            shutil.copytree(self.k.kit, os.path.join(kit_copy, "kit"), ignore=shutil.ignore_patterns("manifest.yaml", "__pycache__"))
+            for f in ("yamlmini.py", "identity.py", "tg.py"):
+                shutil.copy(os.path.join(_BOT, f), kit_copy)
+            rc, out = run([os.path.join(kit_copy, "kit", "install.py"), "--kit", os.path.join(kit_copy, "kit"), "--repo", self.repo, "check-people"])
+            self.assertEqual(rc, 2, out); self.assertIn("ручной файл", out)
+        finally:
+            shutil.rmtree(kit_copy, ignore_errors=True)
+        self.k.write_manifest(entries=self.entries + [self.entries[-1]])   # повтор назначения
+        for cmd in ("layout", "commit"):
+            rc, out = self.k.install(self.repo, cmd)
+            self.assertEqual(rc, 2, (cmd, out)); self.assertIn("повторяется", out)
+
+    def test_physical_aliases_and_directory_in_registry(self):
+        # T4 раунд 2 (astra, BLOCKER ×3): NFD-написание и регистр — один файл на macOS (samefile) → отказ до удаления;
+        # каталог в реестре — отказ (git add -- <каталог> захватил бы чужие файлы)
+        import unicodedata
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        rc, out = self.k.install(self.repo, "commit"); self.assertEqual(rc, 0, out)
+        os.makedirs(os.path.join(self.repo, "customer")); open(os.path.join(self.repo, "customer", "foreign.txt"), "w").write("x")
+        self._commit_all("customer dir")
+        open(os.path.join(self.repo, "customer", "foreign.txt"), "w").write("changed"); git(self.repo, "add", "--", "customer/foreign.txt")
+        self._set_launch("daemon")
+        kv = os.path.join(self.repo, ".workshop", "kit-version.yaml")
+        base = "kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nlaunch: ci\nmanual_destinations:\n  - %s\n" % self.BOOT
+        nfd_boot = unicodedata.normalize("NFD", ".github/workflows/workshop-bot-bootstrap.yml")   # ASCII — NFD == NFC; пробуем не-ASCII компоненту
+        for dest, needle in ((".GITHUB/workflows/workshop-bot-bootstrap.yml", "ручной файл"), ("customer", "каталог"),
+                             (unicodedata.normalize("NFD", "докс/й.yml"), None)):
+            with open(kv, "w", encoding="utf-8") as fh:
+                fh.write(base + "workflow_destinations:\n  - \"%s\"\n" % dest)
+            for cmd in ("layout", "commit"):
+                rc, out = self.k.install(self.repo, cmd)
+                if needle:
+                    self.assertEqual(rc, 2, (dest, cmd, out)); self.assertIn(needle, out, (dest, cmd))
+            self.assertTrue(self._exists(self.BOOT), dest)
+        shown = git(self.repo, "log", "--name-status", "--format=", "-1").stdout
+        self.assertNotIn("customer/foreign.txt", shown)
+        self.assertEqual(git(self.repo, "status", "--porcelain").stdout.strip().split("\n")[0], "M  customer/foreign.txt")
+
+    def test_index_only_directory_and_absolute_path_length(self):
+        # T4 раунд 3 (astra): каталог, удалённый из дерева, но живой в индексе git, — отказ (git add -- dir захватил бы
+        # удаления потомков); длина — по лимитам ФС для АБСОЛЮТНОГО пути, отказ до удаления обёрток
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        rc, out = self.k.install(self.repo, "commit"); self.assertEqual(rc, 0, out)
+        os.makedirs(os.path.join(self.repo, "customer")); open(os.path.join(self.repo, "customer", "foreign.txt"), "w").write("x")
+        self._commit_all("customer dir")
+        shutil.rmtree(os.path.join(self.repo, "customer"))                 # удалён из дерева, в индексе жив
+        self._set_launch("daemon")
+        kv = os.path.join(self.repo, ".workshop", "kit-version.yaml")
+        base = "kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nlaunch: ci\nmanual_destinations:\n  - %s\n" % self.BOOT
+        with open(kv, "w", encoding="utf-8") as fh:
+            fh.write(base + "workflow_destinations:\n  - customer\n")
+        for cmd in ("layout", "check-people", "commit"):
+            rc, out = self.k.install(self.repo, cmd)
+            self.assertEqual(rc, 2, (cmd, out)); self.assertIn("каталог", out, cmd)
+        self.assertNotIn("D\tcustomer/foreign.txt", git(self.repo, "log", "--name-status", "--format=", "-1").stdout)
+        self.assertTrue(all(self._exists(w) for w in self.WF))
+        # абсолютный путь ≥ PC_PATH_MAX — отказ до мутаций (обёртки на месте)
+        long_rel = ".github/workflows/" + "/".join(["d" * 200] * 6) + "/x.yml"   # относительная длина > 1024 → лимит ФС
+        with open(kv, "w", encoding="utf-8") as fh:
+            fh.write(base + "workflow_destinations:\n  - %s\n" % long_rel)
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 2, out); self.assertIn("небезопасный путь", out)
+        self.assertTrue(all(self._exists(w) for w in self.WF))
+
+    def test_file_hiding_index_directory_and_empty_path_set(self):
+        # T4 раунд 4 (astra, BLOCKER ×2): файл на диске с именем каталога индекса — индекс сверяется всегда; пустой набор
+        # путей — выход до git-операций (иначе git commit без pathspec берёт чужой индекс)
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        rc, out = self.k.install(self.repo, "commit"); self.assertEqual(rc, 0, out)
+        os.makedirs(os.path.join(self.repo, "customer")); open(os.path.join(self.repo, "customer", "foreign.txt"), "w").write("x")
+        self._commit_all("customer dir")
+        shutil.rmtree(os.path.join(self.repo, "customer")); open(os.path.join(self.repo, "customer"), "w").write("file now")
+        self._set_launch("daemon")
+        kv = os.path.join(self.repo, ".workshop", "kit-version.yaml")
+        with open(kv, "w", encoding="utf-8") as fh:
+            fh.write("kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nlaunch: ci\nmanual_destinations:\n  - %s\nworkflow_destinations:\n  - customer\n" % self.BOOT)
+        head = git(self.repo, "rev-parse", "HEAD").stdout
+        rc, out = self.k.install(self.repo, "commit")
+        self.assertEqual(rc, 2, out); self.assertIn("каталог в индексе", out)
+        self.assertEqual(git(self.repo, "rev-parse", "HEAD").stdout, head)                  # коммита установки нет
+        # пустой набор: манифест без записей комплекта на диске/в индексе, чужой staged-файл — коммита нет
+        k2 = _Kit(); r2 = tempfile.mkdtemp(prefix="repo-")
+        try:
+            git(r2, "init", "-q"); place_people_map(r2)
+            open(os.path.join(r2, "foreign.txt"), "w").write("staged"); git(r2, "add", "--", "foreign.txt")
+            k2.write_manifest(entries=[("bot/kit/templates/people.yaml", ".workshop/people.yaml", "manual")])
+            rc, out = k2.install(r2, "commit")
+            self.assertEqual(rc, 0, out); self.assertIn("изменений нет", out)
+            self.assertNotEqual(git(r2, "rev-parse", "--verify", "-q", "HEAD").returncode, 0)   # коммита не появилось
+            self.assertIn("A  foreign.txt", git(r2, "status", "--porcelain").stdout)          # чужой staged-файл остался в индексе
+        finally:
+            k2.cleanup(); shutil.rmtree(r2, ignore_errors=True)
+
+    def test_layout_refuses_index_directories_before_any_deletion(self):
+        # T4 раунд 5 (astra, BLOCKER): layout проверяет индекс для ВСЕХ назначений (реестр и манифест), в т. ч. каталог индекса,
+        # скрытый файлом на диске, и новое назначение манифеста поверх каталога индекса — отказ до удалений
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        rc, out = self.k.install(self.repo, "commit"); self.assertEqual(rc, 0, out)
+        os.makedirs(os.path.join(self.repo, "hidden")); open(os.path.join(self.repo, "hidden", "child.txt"), "w").write("x")
+        os.makedirs(os.path.join(self.repo, ".github", "workflows", "newwf.yml")); open(os.path.join(self.repo, ".github", "workflows", "newwf.yml", "c.txt"), "w").write("y")
+        self._commit_all("index dirs")
+        shutil.rmtree(os.path.join(self.repo, "hidden")); open(os.path.join(self.repo, "hidden"), "w").write("file now")
+        shutil.rmtree(os.path.join(self.repo, ".github", "workflows", "newwf.yml"))
+        self._set_launch("daemon")
+        kv = os.path.join(self.repo, ".workshop", "kit-version.yaml")
+        with open(kv, "w", encoding="utf-8") as fh:
+            fh.write("kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nlaunch: ci\nmanual_destinations:\n  - %s\nworkflow_destinations:\n  - hidden\n" % self.BOOT)
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 2, out); self.assertIn("каталог в индексе", out)
+        self.assertTrue(os.path.exists(os.path.join(self.repo, "hidden"))); self.assertTrue(all(self._exists(w) for w in self.WF))
+        # новое назначение манифеста поверх каталога индекса
+        with open(kv, "w", encoding="utf-8") as fh:
+            fh.write("kit_version: 9.9.9\nkit_schema_version: 1\nmanifest_schema_version: 1\nlaunch: ci\nmanual_destinations:\n  - %s\nworkflow_destinations: []\n" % self.BOOT)
+        self.k.write_manifest(entries=self.entries + [("bot/kit/workflows/poller.yml", ".github/workflows/newwf.yml", "workflow")])
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 2, out); self.assertIn("каталог в индексе", out)
+        self.assertTrue(all(self._exists(w) for w in self.WF))
+
+    def test_version_file_parent_file_and_mode_checked_before_mutations(self):
+        # T4 раунд 6 (astra): kit-version.yaml — каталог только в индексе; родитель нового назначения — регулярный файл;
+        # невалидный mode манифеста — всё отказ ДО удаления обёрток
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)
+        rc, out = self.k.install(self.repo, "commit"); self.assertEqual(rc, 0, out)
+        self._set_launch("daemon"); self._commit_all("daemon")
+        kv = os.path.join(self.repo, ".workshop", "kit-version.yaml")
+        os.remove(kv); os.makedirs(kv); open(os.path.join(kv, "child"), "w").write("x"); self._commit_all("kv dir")
+        shutil.rmtree(kv)                                                        # каталог только в индексе
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 2, out); self.assertIn("каталог в индексе", out); self.assertTrue(all(self._exists(w) for w in self.WF))
+        git(self.repo, "rm", "-rq", "--cached", ".workshop/kit-version.yaml"); self._commit_all("kv removed")
+        rc, out = self.k.install(self.repo, "layout"); self.assertEqual(rc, 0, out)   # снова законно → раскладка (удаления при daemon)
+        rc, out = self.k.install(self.repo, "commit"); self.assertEqual(rc, 0, out)
+        self._set_launch("ci"); self._commit_all("ci")
+        # родитель нового назначения — регулярный файл
+        open(os.path.join(self.repo, "blocked"), "w").write("file")
+        self.k.write_manifest(entries=self.entries + [("bot/tg.py", "blocked/inner.py", "code")])
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 2, out); self.assertIn("не каталог", out)
+        # невалидный mode
+        self.k.write_manifest(entries=self.entries)
+        with open(self.k.manifest, encoding="utf-8") as fh:
+            t = fh.read()
+        with open(self.k.manifest, "w", encoding="utf-8") as fh:
+            fh.write(t.replace('mode: "0644"', 'mode: "invalid"', 1))
+        rc, out = self.k.install(self.repo, "layout")
+        self.assertEqual(rc, 2, out); self.assertIn("восьмеричных", out)
+
+    def test_registry_step_launch_form_when_always(self):
+        with open(os.path.join(_KIT, "install-steps.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
+        self.assertIn("  - id: launch_form\n", text)
+        block = text.split("  - id: launch_form\n", 1)[1].split("  - id: ", 1)[0]
+        self.assertIn("when: always", block)
+        self.assertNotIn("when: daemon", text)             # нового значения when не вводится (build_help.py вне владения D15)
+
+
 class CronPeriodTests(unittest.TestCase):
     """Раунд 3 W7: период сторожа сверяется с cron обёртки — источником расписания, не копией."""
     def test_cron_forms(self):

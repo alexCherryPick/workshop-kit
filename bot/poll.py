@@ -30,10 +30,14 @@ import yamlmini, tg, parse as parse_mod, session as session_mod, lastn, line as 
 import secrets as secrets_mod, state_store as ss, commit as commit_mod, build_help  # noqa: E402
 import comment as comment_mod  # noqa: E402 — раскладка UUIDv7 одна (id контейнера при ленивом создании)
 import undo as undo_mod  # noqa: E402 — T8: отзыв своей строки / возврат (правило Т, выбор цели, чётность)
+import aggregation as aggregation_mod  # noqa: E402 — D15: единственный читатель сумм (сводка часов)
 
 HOLD_OUTCOMES = ("conflict_p1_unmet", "retries_exhausted", "run_refused", "tool_failure")
 RECORD_OUTCOMES = ("recorded", "recorded_with_warning", "session_opened", "session_closed_recorded")
 UNDO_OUTCOMES = ("retracted", "unretracted")   # T8: пишущие исходы без дневной строки (блок в спутник)
+# D15: читающие позиции (литералы id — диспетчеризация, не копия реестра токенов; контракт D15 §4.2): вне скана
+# секретов (в репозиторий не пишут ни байта) и вне обёртки подтверждения (подтверждать нечего — confirm_wraps_only)
+READ_ONLY_POSITIONS = ("help", "last", "summary")
 SHORT_REPLY_MAX = 160                          # T8 (REQ-095): переспрос — одна строка не длиннее этого
 TG_TEXT_MAX = 4096                             # предел одного сообщения мессенджера (Bot API); длиннее — частями
 
@@ -215,6 +219,22 @@ def reply_text(ctx, outcome, decision, parsed, extra=None):
         rows = ["%d. %s%s" % (i + 1, t, " — отозвано" if i < len(marks) and marks[i] else "") for i, t in enumerate(titles)]
         return "последние заголовки:\n" + "\n".join(rows) + "\nповторить: %s <N>; задним числом: %s <от>-<до> <N>; отозвать/вернуть: %s <N>" % (token_of(ctx, "start_n"), token_of(ctx, "track"), token_of(ctx, "undo"))
     return outcome
+
+
+def _summary_reply(ctx, reply, parsed, people, handle, tz):
+    """→ (исход, текст) сводки по контракту D15 §4.4: строки TSV читателя → охват/диапазон → ответ (чистая функция).
+    Календарь за пределами представимого — переспрос `reask_unparsed` с причиной `summary_period_out_of_range`
+    (исход — переспрос, не summary_given; T3 раунд 1), не сбой инструмента."""
+    scope, period = reply.get("scope", "me"), reply.get("period", "current")
+    try:
+        rng = aggregation_mod.period_months(parsed["message_date"], tz, period)
+    except ValueError as e:
+        return "reask_unparsed", reply_text(ctx, "reask_unparsed", {"reply": {"reason": str(e)}}, parsed)
+    rows = aggregation_mod.summarize(ctx.root, people, handle if scope == "me" else None,
+                                     trace=lambda kind, rel, note: ctx.trace.add("summary_" + kind.lower(), rel, 0, note))
+    rows = aggregation_mod.select(rows, rng)
+    ctx.trace.add("summary", "%s/%s" % (scope, period), 0, "%d пар человек-месяц" % len(rows))
+    return "summary_given", aggregation_mod.render_reply(rows, scope, rng, period == "all")
 
 
 def last_keyboard(ctx, titles):
@@ -424,6 +444,11 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
     if parsed.get("is_callback") and not parsed.get("callback_allowed"):
         ctx.say(chat_id, reply_text(ctx, "reask_unparsed", {"reply": {"reason": "callback_not_allowed"}}, parsed), reply_to)
         return "reask_unparsed", state, sessions, people_doc, people, False
+    # D15: читающая позиция, обёрнутая подтверждением, — не вход подтверждения (confirm_wraps_only реестра контракта):
+    # ей нечего подтверждать; переспрос с причиной, ноль коммитов, offset продвигается
+    if parsed.get("wrapped_by") == "confirm" and parsed["position"] in READ_ONLY_POSITIONS:
+        ctx.say(chat_id, reply_text(ctx, "reask_unparsed", {"reply": {"reason": "confirm_not_allowed"}}, parsed), reply_to)
+        return "reask_unparsed", state, sessions, people_doc, people, False
     person = res["person"]
     new_people_doc = people_doc
     if res["kind"] == "pending_new":
@@ -431,7 +456,7 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
         new_people_doc = identity_mod.append_entry(people_doc, res["new_entry"])
         note = "\nзаписал, тебя сверит админ (твой id в мессенджере: %d, временный handle %s)" % (parsed["from_id"], person["handle"])
     # --- скан секретов (T4) — до записи; подтверждение только после находки того же отправителя
-    if parsed["position"] not in ("help", "last"):
+    if parsed["position"] not in READ_ONLY_POSITIONS:
         scan_text = parsed["text"]
         if parsed.get("confirmed"):
             inner = parsed.get("confirm_inner_text", parsed["text"])
@@ -466,6 +491,17 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
             d["reply"]["retracted"] = undo_mod.titles_state(root, handle, d["reply"].get("titles") or [], ctx.cfg.get("namespace"))
             ctx.say(chat_id, reply_text(ctx, outcome, d, parsed), reply_to, reply_markup=last_keyboard(ctx, d["reply"].get("titles") or []))
             ctx.outgoing.append((chat_id, "last_list"))
+        elif outcome == "summary_given":
+            # D15 (REQ-108): сводка часов — чтение всех табелей читателем aggregation; «сейчас» — message.date в зоне
+            # отправителя; ошибка чтения содержимого исключением не является (пропуск с WARNING в трассу), а IO-ошибка
+            # или собственное исключение читателя — tool_failure: hold, батч остановлен, алярм (контракт D15 §4.3)
+            try:
+                outcome, text = _summary_reply(ctx, d["reply"], parsed, people, handle, tz)
+            except Exception as e:  # noqa: BLE001 — собственная ошибка инструмента: отдельный фатальный исход
+                ctx.trace.add("tool_failure", "update:%s" % uid, 10, "сводка: %s: %s" % (type(e).__name__, str(e)[:120]))
+                ctx.alarm("сбой чтения сводки (%s): %s" % (type(e).__name__, str(e)[:200]), people)
+                return "tool_failure", state, sessions, people_doc, people, True
+            ctx.say(chat_id, text, reply_to)
         elif outcome == "identical_repeat":
             ctx.trace.add("identical", "update:%s" % uid, 0, d["reply"].get("reason"))
         else:

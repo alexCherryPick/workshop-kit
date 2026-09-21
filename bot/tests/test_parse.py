@@ -40,16 +40,21 @@ class ParseTests(unittest.TestCase):
         self.P = parse.Parser(REG, bot_username="cp_workshop_test_bot")
         self.rows = registry_rows()
 
-    def test_registry_has_nine_positions_and_parser_reads_it(self):
-        self.assertEqual(len(self.rows), 9)   # T8: +undo
-        ids = {r["id"] for r in self.rows}
+    def test_registry_positions_unique_and_parser_reads_all(self):
+        # D15: число позиций — свойство реестра (было «ровно 9» — ручной счётчик); инварианты: непуст, id уникальны,
+        # парсер знает ровно множество реестра
+        ids = [r["id"] for r in self.rows]
+        self.assertTrue(ids); self.assertEqual(len(ids), len(set(ids)))
+        ids = set(ids)
         self.assertEqual(set(self.P.by_id), ids)
         for r in self.rows:
             self.assertEqual(self.P.by_id[r["id"]]["tail_rule"], r["tail_rule"])
 
     def test_every_position_reachable(self):
         samples = {"start_title": TOK["start_title"] + " созвон", "start_n": TOK["start_n"] + " 2", "stop": TOK["stop"], "track": TOK["track"] + " 10:15-12:00 разбор",
-                   "free_text": "2ч 40м созвон", "last": TOK["last"], "help": TOK["help"], "confirm": TOK["confirm"] + " 1ч правка"}
+                   "free_text": "2ч 40м созвон", "last": TOK["last"], "help": TOK["help"], "confirm": TOK["confirm"] + " 1ч правка",
+                   "undo": TOK["undo"] + " 1", "summary": TOK["summary"] + " team 2"}
+        self.assertEqual(set(samples), {r["id"] for r in self.rows})   # каждая позиция реестра достижима образцом
         for pid, text in samples.items():
             r = self.P.parse(upd(text))
             self.assertEqual(r["kind"], "input", text)

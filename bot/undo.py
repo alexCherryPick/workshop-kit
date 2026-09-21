@@ -52,7 +52,7 @@ def parse_sibling(data):
     out = []
     for raw in data.split(b"\n"):
         try:
-            line = raw.decode("utf-8")
+            line = raw.rstrip(b"\r").decode("utf-8")   # CRLF терпим (W-FILE-CRLF): \r — не часть заголовка (D15-T3, адверсарий T2 раунд 2)
         except UnicodeDecodeError:
             continue
         m = _HDR_RE.match(line)
@@ -63,47 +63,31 @@ def parse_sibling(data):
 
 def comment_active(cid, headers, _index=None):
     """Коммент ДЕЙСТВУЕТ ⟺ на него НЕТ ни одного действующего retracts:<cid> — идемпотентность по цели и для
-    комментов (раунд 1, №6). Семантика рекурсивная (цикл — участник цикла не действует), ВЫЧИСЛЕНИЕ —
-    итеративное с явным стеком (раунд 2, W3: цепочка «отзыв отзыва» любой глубины законна для валидатора и
-    не должна ронять поллер RecursionError)."""
+    комментов (раунд 1, №6). Семантика — НАИМЕНЬШАЯ НЕПОДВИЖНАЯ ТОЧКА (цепочка «отзыв отзыва» любой глубины законна,
+    раунд 2 W3): коммент решён действующим, когда все его отзывающие решены НЕ действующими; решён недействующим, когда
+    хотя бы один отзывающий решён действующим; участники кольца, не решённые этим правилом, НЕ действуют (цикл — ERROR
+    ядра 04.5; читатель не падает). Вычисление итеративное, без рекурсии. [D15-T3, адверсарий T2 раунд 2: прежний обход
+    со стеком отдавал действующих в кольце нечётной длины — расходился с оракулом и с собственным докстрингом.]"""
     if _index is None:
         _index = {}
         for h in headers:
             if h["link"] == "retracts:":
                 _index.setdefault(h["target"], []).append(h["cid"])
-    memo = {}
-    # кадр: [узел, итератор отзывающих, найден_действующий_отзыв, затронут_циклом]
-    stack = [[cid, iter(_index.get(cid, ())), False, False]]
-    onpath = {cid}
-    while stack:
-        frame = stack[-1]
-        node, it = frame[0], frame[1]
-        child = next(it, None)
-        if child is None:
-            stack.pop(); onpath.discard(node)
-            value = not frame[2]
-            if not frame[3]:
-                memo[node] = value
-            if not stack:
-                return value
-            parent = stack[-1]
-            if value:
-                parent[2] = True
-            if frame[3]:
-                parent[3] = True
-            continue
-        if frame[2]:
-            continue            # действующий отзыв уже найден — остальные не важны
-        if child in onpath:
-            frame[3] = True     # цикл: этот отзывающий не действует (по семантике), результат узла не мемоизируется
-            continue
-        if child in memo:
-            if memo[child]:
-                frame[2] = True
-            continue
-        onpath.add(child)
-        stack.append([child, iter(_index.get(child, ())), False, False])
-    return True
+    ids = [h["cid"] for h in headers]
+    active = {}
+    changed = True
+    while changed:
+        changed = False
+        for node in ids:
+            if node in active:
+                continue
+            rs = _index.get(node, ())
+            known = [active.get(r) for r in rs]
+            if any(k is True for k in known):
+                active[node] = False; changed = True
+            elif all(k is False for k in known):      # включая пустой список отзывающих
+                active[node] = True; changed = True
+    return active.get(cid, False)                     # не решён (кольцо) либо неизвестный id — не действует
 
 
 def active_retractions(anchor8, headers):

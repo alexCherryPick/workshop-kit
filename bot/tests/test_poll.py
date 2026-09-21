@@ -482,6 +482,7 @@ class TestOffsetTable(Base):
         F["reask_stop_without_open"] = lambda: self.run_poll([msg(TOK["stop"])])
         F["help_given"] = lambda: self.run_poll([msg(TOK["help"])])
         F["last_list_given"] = lambda: self.run_poll([msg(TOK["last"])])
+        F["summary_given"] = lambda: self.run_poll([msg(TOK["summary"] + " team")])   # D15: чистое чтение, advance
         # T8: отзыв своей строки / возврат по номеру / нечего отзывать
         F["retracted"] = lambda: self.run_poll([msg("2ч работа", date=T0), msg(TOK["undo"] + " по ошибке", date=T0 + 60)])
         F["unretracted"] = lambda: self.run_poll([msg("2ч работа", date=T0), msg(TOK["undo"], date=T0 + 60), msg(TOK["last"], date=T0 + 120), msg(TOK["undo"] + " 1 вернуть", date=T0 + 180)])
@@ -509,7 +510,7 @@ class TestOffsetTable(Base):
 
     def test_table(self):
         rows = contract_outcomes()
-        self.assertEqual(len(rows), 24)   # T8: +retracted, unretracted, reask_undo_not_found; REQ-103: +session_cancelled
+        self.assertTrue(rows); self.assertEqual(len({r[1] for r in rows}), len(rows))   # D15: число — из реестра, без дублей id
         table = ["  offset-table (исход: offset до → после; advances по контракту)"]
         seen = set()
         for oid, name, adv in rows:
@@ -530,7 +531,7 @@ class TestOffsetTable(Base):
                 self.assertLessEqual(origin_offset(self.s), last[0], name)   # авторитет (origin) не продвинут за удержанный update
                 self.assertIsNotNone(r["held"], name)
             seen.add(name)
-        self.assertEqual(len(seen), 24)
+        self.assertEqual(seen, {r[1] for r in rows})   # D15: множество исполненных исходов == реестр, не мощность
         out = os.environ.get("D09_OFFSET_TABLE")   # selfcheck_t3.sh печатает таблицу из этого файла; поток unittest не засоряется
         if out:
             with open(out, "w", encoding="utf-8") as fh:
@@ -686,7 +687,7 @@ class TestOffsetTable(Base):
         for pos in self.cfg_registry_positions():
             token = pos["token"] or ""
             data = {"start_title": token + " x", "start_n": token + " 1", "undo": token + " 1", "track": token + " 10:00-11:00 x",
-                    "free_text": "1ч x"}.get(pos["id"], token or "просто текст")   # синтаксически верный аргумент: судится гейт кнопки, не разбор
+                    "free_text": "1ч x", "summary": token + " all"}.get(pos["id"], token or "просто текст")   # синтаксически верный аргумент: судится гейт кнопки, не разбор
             r, t, ctx = self.run_poll([callback(data)])
             oc = r["outcomes"][-1][1]
             self.assertNotIn(oc, ("tool_failure",), (pos["id"], oc))
