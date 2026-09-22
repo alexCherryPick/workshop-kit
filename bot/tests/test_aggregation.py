@@ -318,18 +318,22 @@ class PersonalScopeTests(unittest.TestCase):
             fh.write(crlf_env + b"2026-11-01 1.00  x <!--t:c0000001-->\r\n")                            # МАЛОЕ тело: блочное чтение прочло бы его целиком
         counts = {}
         real_open = builtins.open
-        class Counting:
-            def __init__(self, fh, key): self.fh, self.key = fh, key
-            def read(self, n=-1):
-                d = self.fh.read(n); counts[self.key] = counts.get(self.key, 0) + len(d); return d
-            def readline(self, n=-1):
-                d = self.fh.readline(n); counts[self.key] = counts.get(self.key, 0) + len(d); return d
-            def __enter__(self): return self
-            def __exit__(self, *a): return self.fh.__exit__(*a)
-            def __getattr__(self, k): return getattr(self.fh, k)
-        def counting_open(path, mode="r", *a, **kw):
-            fh = real_open(path, mode, *a, **kw)
-            return Counting(fh, os.path.abspath(str(path))) if "b" in mode and str(path).startswith(self.root) else fh
+        import io
+        class CountingRaw(io.RawIOBase):
+            """Считает байты, ВЫБРАННЫЕ из файла (readinto сырого файла) — не возвращённые вызывающему: буферизованное
+            чтение выбирает блок 8192 и прочло бы чужое тело (clean-room codex по REQ-108 v10 «ни байта тела»)."""
+            def __init__(self, raw, key): super().__init__(); self.raw, self.key = raw, key
+            def readinto(self, b):
+                n = self.raw.readinto(b); counts[self.key] = counts.get(self.key, 0) + (n or 0); return n
+            def readable(self): return True
+            def seekable(self): return False
+            def close(self):
+                self.raw.close(); super().close()
+        def counting_open(path, mode="r", buffering=-1, *a, **kw):
+            if "b" in mode and "r" in mode and str(path).startswith(self.root):
+                raw = CountingRaw(io.FileIO(path, "r"), os.path.abspath(str(path)))
+                return raw if buffering == 0 else io.BufferedReader(raw)
+            return real_open(path, mode, buffering, *a, **kw)
         builtins.open = counting_open
         try:
             rows = aggregation.summarize(self.root, self.people, "dev1")

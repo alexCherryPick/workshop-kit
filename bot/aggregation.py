@@ -239,7 +239,7 @@ def _read_head(path):
     (граница РОВНО та же, что у полного чтения); без открывающего `---` — только первая строка; без терминатора — до EOF. Личные уровни (REQ-108 v10, решение alex 1(б)):
     у ЧУЖИХ контейнеров читается ровно конверт (обнаружение и привязка спутников по id), ни байта тела.
     IO-ошибка — наружу (владелец неизвестен ⇒ tool_failure, §4.3)."""
-    with open(path, "rb") as fh:
+    with open(path, "rb", buffering=0) as fh:                 # без буфера: из файла ВЫБИРАЮТСЯ ровно байты конверта (readline сырого файла — побайтово)
         head = fh.readline()
         while True:
             _d, end = _envelope_span(head)                    # тот же предикат, что у envelope_fields/_body
@@ -253,7 +253,7 @@ def _read_head(path):
 
 def _read_first_line(path):
     """Первая строка спутника (привязка по id, ядро 04.2.1); тело чужого спутника в личном режиме не читается."""
-    with open(path, "rb") as fh:
+    with open(path, "rb", buffering=0) as fh:                 # без буфера: ровно первая строка, ни байта дальше
         return fh.readline()
 
 
