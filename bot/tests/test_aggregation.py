@@ -455,6 +455,29 @@ class PeriodTests(unittest.TestCase):
             aggregation.period_months(self.T, "UTC", 0)
 
 
+ORACLE = os.path.join(MONO, "harness", "d15_summary_oracle.py")
+
+
+def oracle_reply(rows, scope, rng, limit=4096):
+    """Ожидаемый ответ §4.4 и части — НЕЗАВИСИМЫЙ оракул отдельным процессом (вход — TSV, собранный здесь, не render_tsv)."""
+    import json, subprocess
+    data = "".join("%s\t%s\t%d\n" % r for r in rows).encode("utf-8")
+    argv = [sys.executable, ORACLE, "--reply", "--tsv", "-", "--scope", scope, "--range", "all" if rng is None else "%s..%s" % rng,
+            "--limit", str(limit)]
+    p = subprocess.run(argv, input=data, capture_output=True)
+    if p.returncode != 0:
+        raise AssertionError("оракул rc=%d: %r %r" % (p.returncode, p.stdout[-300:], p.stderr[-300:]))
+    return json.loads(p.stdout.decode("utf-8"))
+
+
+def by_bytes(rows):
+    return sorted(rows, key=lambda r: (r[0].encode("utf-8"), r[1]))
+
+
+def product(rows, scope, rng, requested_all=None):
+    return aggregation.render_reply(aggregation.select(rows, rng), scope, rng, rng is None if requested_all is None else requested_all)
+
+
 class ReplyTests(unittest.TestCase):
     ROWS = [("dev1", "2026-08", 125), ("dev1", "2026-09", 3800), ("dev2", "2026-09", 500)]
 
@@ -463,15 +486,231 @@ class ReplyTests(unittest.TestCase):
         self.assertEqual(aggregation.render_reply(aggregation.select(me, ("2026-09", "2026-09")), "me", ("2026-09", "2026-09"), False),
                          "мои часы за 2026-09\n2026-09 — 38.00 ч")
         self.assertEqual(aggregation.render_reply(me, "me", None, True), "мои часы за 2026-08…2026-09\n2026-08 — 1.25 ч\n2026-09 — 38.00 ч")
+        # амендмент §4.4 (summary-month, 2026-10-03): командный ответ по месяцам + «всего»
         self.assertEqual(aggregation.render_reply(aggregation.select(self.ROWS, ("2026-09", "2026-09")), "team", ("2026-09", "2026-09"), False),
-                         "команда за 2026-09\ndev1\n2026-09 — 38.00 ч\ndev2\n2026-09 — 5.00 ч")
+                         "команда за 2026-09 — всего 43.00 ч\ndev1 — 38.00 ч\ndev2 — 5.00 ч")
+        self.assertEqual(aggregation.render_reply(self.ROWS, "team", None, True),
+                         "команда за 2026-08…2026-09\n\n2026-08 — всего 1.25 ч\ndev1 — 1.25 ч\n\n2026-09 — всего 43.00 ч\ndev1 — 38.00 ч\ndev2 — 5.00 ч")
+        self.assertEqual(product(self.ROWS, "team", ("2026-07", "2026-09")),
+                         "команда за 2026-07…2026-09\n\n2026-08 — всего 1.25 ч\ndev1 — 1.25 ч\n\n2026-09 — всего 43.00 ч\ndev1 — 38.00 ч\ndev2 — 5.00 ч")
         self.assertEqual(aggregation.render_reply([], "me", ("2026-06", "2026-08"), False), "мои часы за 2026-06…2026-08: записей нет")
         self.assertEqual(aggregation.render_reply([], "team", None, True), "команда за все месяцы: записей нет")
+        self.assertEqual(aggregation.render_reply([], "team", ("2026-09", "2026-09"), False), "команда за 2026-09: записей нет")
 
     def test_no_zero_no_trailing_lf_no_at(self):
         text = aggregation.render_reply(self.ROWS, "team", None, True)
         self.assertNotIn("0.00", text); self.assertFalse(text.endswith("\n")); self.assertNotIn("@", text)
+        self.assertNotIn("\n\n\n", text)
         self.assertEqual(aggregation.render_tsv([]), b"")
+
+
+class ReplyMutationMatrixTests(unittest.TestCase):
+    """Матрица мутаций ответа пакетом (правило сходимости §5; поручение summary-month п. 4): продукт == независимый
+    оракул на законных входах; мутации actual и порча helper продукта обязаны расходиться с оракулом."""
+    BASE = by_bytes([("anna", "2026-07", 99), ("bob", "2026-07", 1), ("anna", "2026-08", 1250), ("carl", "2026-08", 333),
+                     ("anna", "2026-09", 2608), ("bob", "2026-09", 750), ("carl", "2026-09", 42)])
+
+    def legit_inputs(self):
+        big = by_bytes([("p%03d" % i, "2026-%02d" % m, 1 + (i * 37 + m * 11) % 1000) for i in range(128) for m in range(1, 13)])
+        return [
+            ("три месяца", self.BASE, "team", ("2026-07", "2026-09")),
+            ("all", self.BASE, "team", None),
+            ("один месяц", self.BASE, "team", ("2026-09", "2026-09")),
+            ("диапазон с пустыми месяцами", self.BASE, "team", ("2026-01", "2026-12")),
+            ("перенос через 100 сотых", [("a", "2026-09", 99), ("b", "2026-09", 1), ("c", "2026-10", 50), ("d", "2026-10", 50)], "team", None),
+            ("перенос, итог 10.00", by_bytes([("p%d" % k, "2026-09", 125) for k in range(8)]), "team", ("2026-09", "2026-09")),
+            ("один человек", [("solo", "2026-09", 1)], "team", ("2026-09", "2026-09")),
+            ("один человек, all", [("solo", "2026-08", 7), ("solo", "2026-09", 993)], "team", None),
+            ("UTF-8 байты handle", by_bytes([("z", "2026-09", 1), ("a-b", "2026-09", 2), ("a", "2026-09", 3), ("a0", "2026-09", 4)]), "team", None),
+            ("крупные часы", [("a", "2026-09", 99999), ("b", "2026-09", 1)], "team", None),
+            ("128×12", big, "team", None),
+            ("личный", [("anna", "2026-07", 99), ("anna", "2026-09", 2608)], "me", None),
+            ("пустой диапазон", self.BASE, "team", ("2025-01", "2025-03")),
+        ]
+
+    def test_product_equals_independent_oracle_on_legit_inputs(self):
+        for name, rows, scope, rng in self.legit_inputs():
+            want = oracle_reply(rows, scope, rng)
+            self.assertEqual(product(rows, scope, rng), want["text"], name)
+
+    def test_legit_permutation_of_input_rows_is_control(self):
+        # законная перестановка: порядок входных строк (не по байтам) не меняет командный ответ — обратный контроль на ложное
+        # срабатывание (личный ответ, не менявшийся амендментом, по-прежнему получает строки summarize в порядке TSV)
+        import random
+        rnd = random.Random(20261003)
+        for name, rows, scope, rng in self.legit_inputs():
+            if scope != "team":
+                continue
+            shuffled = list(rows); rnd.shuffle(shuffled)
+            self.assertEqual(product(shuffled, scope, rng), oracle_reply(rows, scope, rng)["text"], name)
+
+    def actual_mutants(self, text):
+        lines = text.split("\n")
+        person_idx = [k for k, l in enumerate(lines) if l and " — всего " not in l and " за " not in l]
+        total_idx = [k for k, l in enumerate(lines) if " — всего " in l]
+        blocks = text.split("\n\n")
+        def bump(line, d):
+            num = line.rsplit(" ", 2)[1]
+            c = int(num.replace(".", "")) + d
+            return line.replace(" " + num + " ", " %d.%02d " % (c // 100, c % 100))
+        return {
+            "потеря человека": "\n".join(lines[:person_idx[0]] + lines[person_idx[0] + 1:]),
+            "сумма месяца +1 сотая": "\n".join(bump(l, 1) if k == total_idx[0] else l for k, l in enumerate(lines)),
+            "сумма месяца −1 сотая": "\n".join(bump(l, -1) if k == total_idx[-1] else l for k, l in enumerate(lines)),
+            "перестановка месяцев": "\n\n".join([blocks[0], blocks[2], blocks[1]] + blocks[3:]),
+            "перестановка людей": "\n".join(lines[:person_idx[0]] + [lines[person_idx[1]], lines[person_idx[0]]] + lines[person_idx[1] + 1:]),
+            "дубликат строки": "\n".join(lines + [lines[-1]]),
+            "суффиксная подмена handle": text.replace("anna — ", "annaa — ", 1),
+            "подмена той же длины": text.replace("26.08", "26.09", 1),
+            "обнуление": "",
+            "строка месяца у человека (прежняя форма)": text.replace("anna — ", "anna\n2026-07 — ", 1),
+            "общий итог поверх месяцев": text + "\n\nвсего 47.83 ч",
+            "@ перед handle": text.replace("anna — ", "@anna — ", 1),
+            "пустые строки сняты": text.replace("\n\n", "\n"),
+            "завершающий LF": text + "\n",
+        }
+
+    def test_actual_mutations_are_caught(self):
+        want = oracle_reply(self.BASE, "team", ("2026-07", "2026-09"))["text"]
+        got = product(self.BASE, "team", ("2026-07", "2026-09"))
+        self.assertEqual(got, want)                                                     # контроль
+        caught = dict((k, v != want) for k, v in self.actual_mutants(got).items())
+        self.assertEqual([k for k, ok in caught.items() if not ok], [], caught)
+        self.assertGreaterEqual(len(caught), 14)
+
+    def test_input_mutations_change_expected(self):
+        # мутации ИСТОЧНИКА: оракул пересчитывает expected, продукт обязан совпасть с новым (а не со старым)
+        rng = ("2026-07", "2026-09")
+        base = oracle_reply(self.BASE, "team", rng)["text"]
+        variants = {
+            "потеря человека": [r for r in self.BASE if not (r[0] == "carl" and r[1] == "2026-08")],
+            "сотая у одного": [(p, m, c + 1 if (p, m) == ("bob", "2026-07") else c) for p, m, c in self.BASE],
+            "перенос через 100": [(p, m, 100 if (p, m) == ("anna", "2026-07") else c) for p, m, c in self.BASE],
+            "сдвиг часов между месяцами": [(p, "2026-08" if (p, m) == ("bob", "2026-07") else m, c) for p, m, c in self.BASE
+                                           if (p, m) != ("bob", "2026-08")],
+        }
+        for name, rows in variants.items():
+            rows = by_bytes(rows)
+            want = oracle_reply(rows, "team", rng)["text"]
+            self.assertNotEqual(want, base, name)
+            self.assertEqual(product(rows, "team", rng), want, name)
+
+    def test_helper_corruption_diverges_from_oracle(self):
+        rng = ("2026-07", "2026-09")
+        want = oracle_reply(self.BASE, "team", rng)["text"]
+        orig_hours = aggregation._hours
+        mutants = {
+            "_hours без ведущего нуля": lambda c: "%d.%d" % (c // 100, c % 100),
+            "_hours через float до десятых": lambda c: "%.1f0" % (c / 100.0),
+            "_hours усечение сотых": lambda c: "%d.%02d" % (c // 100, (c % 100) // 10 * 10),
+        }
+        silent = []
+        for name, fn in mutants.items():
+            aggregation._hours = fn
+            try:
+                if product(self.BASE, "team", rng) == want:
+                    silent.append(name)
+            finally:
+                aggregation._hours = orig_hours
+        self.assertEqual(silent, [])
+        self.assertEqual(product(self.BASE, "team", rng), want)
+
+    def test_locale_does_not_change_bytes(self):
+        import subprocess
+        code = ("import sys, json, locale\nsys.path.insert(0, %r); sys.path.insert(0, %r)\n"
+                "try:\n    locale.setlocale(locale.LC_ALL, '')\nexcept locale.Error:\n    pass\n"
+                "import aggregation\nrows = %r\n"
+                "sys.stdout.buffer.write(aggregation.render_reply(rows, 'team', None, True).encode('utf-8'))\n" % (BOT, os.path.join(BOT, "kit"), self.BASE))
+        outs = set()
+        for loc in ("C", "en_US.UTF-8", "ru_RU.UTF-8", "tr_TR.UTF-8"):
+            p = subprocess.run([sys.executable, "-c", code], capture_output=True, env=dict(os.environ, LC_ALL=loc, LANG=loc))
+            self.assertEqual(p.returncode, 0, p.stderr)
+            outs.add(p.stdout)
+        self.assertEqual(len(outs), 1)
+        self.assertEqual(outs.pop().decode("utf-8"), oracle_reply(self.BASE, "team", None)["text"])
+
+
+class TransportSplitTests(unittest.TestCase):
+    """Транспортное разбиение §4.4 (амендмент): части продукта == части независимого оракула; блок месяца не рвётся без
+    необходимости; длинный блок — разрыв только между строками людей; ни одно число не теряется и не дублируется."""
+
+    @staticmethod
+    def chunks(text, limit):
+        import poll
+        return poll._chunks(text, limit)
+
+    def battery(self):
+        big = by_bytes([("p%03d" % i, "2026-%02d" % m, 1 + (i * 37 + m * 11) % 1000) for i in range(128) for m in range(1, 13)])
+        long_h = by_bytes([("subcontractor-%03d-workshop" % i, "2026-%02d" % m, 125 + i) for i in range(128) for m in range(1, 13)])
+        small = ReplyMutationMatrixTests.BASE
+        return [("128×12", big, None), ("128×12 длинные handle", long_h, None), ("малый", small, None),
+                ("один месяц 128", [r for r in long_h if r[1] == "2026-03"], ("2026-03", "2026-03"))]
+
+    def test_parts_equal_oracle_on_limit_battery(self):
+        n = 0
+        for name, rows, rng in self.battery():
+            text = product(rows, "team", rng)
+            longest = max(len(l) for l in text.split("\n"))
+            for lim in (longest, longest + 1, 64, 100, 257, 1000, 4096):
+                if lim < longest:
+                    continue
+                want = oracle_reply(rows, "team", rng, lim)
+                self.assertEqual(want["text"], text, name)
+                got = self.chunks(text, lim)
+                self.assertEqual(got, want["parts"], (name, lim))
+                n += len(got)
+                self.assertTrue(all(0 < len(p) <= lim and not p.startswith("\n") and not p.endswith("\n") for p in got), (name, lim))
+                self.assertEqual([x for x in "\n".join(got).split("\n") if x], [x for x in text.split("\n") if x], (name, lim))
+        self.assertGreater(n, 0)
+
+    def test_month_block_not_split_when_it_fits_and_total_leads(self):
+        rows = by_bytes([("p%02d" % i, "2026-%02d" % m, 125) for i in range(25) for m in range(1, 13)])
+        text = product(rows, "team", None)
+        parts = self.chunks(text, 4096)
+        self.assertGreater(len(parts), 1)
+        for b in text.split("\n\n")[1:]:
+            self.assertEqual(sum(1 for p in parts if b in p), 1)                      # блок целиком в одной части
+        for p in parts[1:]:
+            self.assertRegex(p.split("\n")[0], r"^2026-[0-9]{2} — всего [0-9]+\.[0-9]{2} ч$")
+
+    def test_oversize_block_breaks_only_between_people(self):
+        rows = [("subcontractor-%03d-workshop" % i, "2026-09", 125 + i) for i in range(128)]
+        text = product(rows, "team", ("2026-09", "2026-09"))
+        self.assertGreater(len(text), 4096)
+        parts = self.chunks(text, 4096)
+        self.assertEqual(parts[0].split("\n")[0], "команда за 2026-09 — всего %d.%02d ч" % (sum(125 + i for i in range(128)) // 100, sum(125 + i for i in range(128)) % 100))
+        for p in parts[1:]:
+            self.assertTrue(all(l.startswith("subcontractor-") for l in p.split("\n")), p[:80])
+
+    def test_split_mutations_are_caught(self):
+        rows = by_bytes([("subcontractor-%03d-workshop" % i, "2026-%02d" % m, 125 + i) for i in range(128) for m in (1, 2)])
+        text = product(rows, "team", None)
+        want = oracle_reply(rows, "team", None)["parts"]
+        got = self.chunks(text, 4096)
+        self.assertEqual(got, want)
+        self.assertGreaterEqual(len(got), 3)
+        self.assertEqual(got[0], "команда за 2026-01…2026-02")                         # блок 2026-01 длиннее лимита — с новой части
+        a, b = got[1], got[2]                                                          # разрез внутри блока 2026-01
+        last_line = a.split("\n")[-1]
+        rest = got[3:]
+        mutants = {
+            "дубликат строки на разрезе": [got[0], a, last_line + "\n" + b] + rest,
+            "потеря строки на разрезе": [got[0], a.rsplit("\n", 1)[0], b] + rest,
+            "строка перенесена через разрез": [got[0], a.rsplit("\n", 1)[0], last_line + "\n" + b] + rest,
+            "пустая строка в начале части": [got[0], a, "\n" + b] + rest,
+            "части переставлены": [got[0], b, a] + rest,
+            "склейка двух частей": [got[0], a + "\n" + b] + rest,
+            "заголовок приклеен к блоку": [got[0] + "\n\n" + a, b] + rest,
+        }
+        self.assertEqual([k for k, v in mutants.items() if v == want], [])
+
+    def test_text_without_blank_lines_splits_as_before(self):
+        # обратный контроль: текст без пустых строк (личный ответ, список заголовков) режется прежним правилом строк
+        text = "\n".join("строка %04d — 1.25 ч" % k for k in range(400))
+        parts = self.chunks(text, 4096)
+        self.assertEqual("\n".join(parts), text)
+        self.assertTrue(all(len(p) <= 4096 for p in parts))
+        self.assertTrue(all(len(parts[k]) + 1 + len(parts[k + 1].split("\n")[0]) > 4096 for k in range(len(parts) - 1)))
 
 
 if __name__ == "__main__":

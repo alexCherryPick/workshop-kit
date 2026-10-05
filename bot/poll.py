@@ -43,20 +43,35 @@ TG_TEXT_MAX = 4096                             # предел одного со�
 
 
 def _chunks(text, limit):
-    """Части ≤ limit символов, по границам строк, где возможно; без пустых частей."""
+    """Части ≤ limit символов (контракт D15 §4.4, амендмент summary-month 2026-10-03). Блок — строки между пустыми
+    строками (у командной сводки — блок месяца). Блоки пакуются жадно: блок, помещающийся в текущую часть вместе с пустой
+    строкой перед ним, идёт в неё, иначе начинает новую часть; блок длиннее лимита начинает новую часть и режется только
+    между строками, жадно (строка длиннее лимита — по символам). Разрез на границе блоков поглощает пустую строку.
+    Текст без пустых строк режется прежним правилом строк."""
     if len(text) <= limit:
         return [text]
-    out, cur = [], ""
-    for line in text.split("\n"):
-        while len(line) > limit:
-            if cur:
-                out.append(cur); cur = ""
-            out.append(line[:limit]); line = line[limit:]
-        if cur and len(cur) + 1 + len(line) > limit:
-            out.append(cur); cur = line
-        else:
-            cur = (cur + "\n" + line) if cur else line
-    if cur:
+    out, cur = [], None
+    for block in text.split("\n\n"):
+        if cur is not None and len(cur) + 2 + len(block) <= limit:
+            cur = cur + "\n\n" + block
+            continue
+        if cur is not None:
+            out.append(cur); cur = None
+        if len(block) <= limit:
+            cur = block
+            continue
+        for line in block.split("\n"):
+            while len(line) > limit:
+                if cur is not None:
+                    out.append(cur); cur = None
+                out.append(line[:limit]); line = line[limit:]
+            if cur is not None and len(cur) + 1 + len(line) <= limit:
+                cur = cur + "\n" + line
+            else:
+                if cur is not None:
+                    out.append(cur)
+                cur = line
+    if cur is not None:
         out.append(cur)
     return out
 def _one_line(text):

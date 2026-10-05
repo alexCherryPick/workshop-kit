@@ -451,17 +451,27 @@ def render_reply(rows, scope, rng, requested_all):
     if rng is None:
         months = sorted(set(r[1] for r in rows))
         rng = (months[0], months[-1])
-    out = ["%s за %s" % (s, _range_text(rng))]
+    head = "%s за %s" % (s, _range_text(rng))
     if scope == SCOPE_ME:
+        out = [head]
         for _p, month, cents in rows:
             out.append("%s — %s ч" % (month, _hours(cents)))
         return "\n".join(out)
-    cur = None
+    # амендмент §4.4 (summary-month, 2026-10-03, слово alex): командный ответ — по месяцам; строка месяца с итогом
+    # «всего» (целая сумма сотых людей месяца), под ней люди `<handle> — H.HH ч` по UTF-8-байтам handle. Один месяц в R —
+    # итог в строке заголовка; несколько — заголовок `команда за R`, блоки месяцев через пустую строку (блок — единица
+    # транспортного разбиения poll._chunks).
+    by_month = {}
     for person, month, cents in rows:
-        if person != cur:
-            out.append(person); cur = person
-        out.append("%s — %s ч" % (month, _hours(cents)))
-    return "\n".join(out)
+        by_month.setdefault(month, []).append((person, cents))
+    blocks = []
+    for month in sorted(by_month):
+        people = sorted(by_month[month], key=lambda pc: pc[0].encode("utf-8"))
+        total = sum(c for _p, c in people)
+        blocks.append(["%s — всего %s ч" % (month, _hours(total))] + ["%s — %s ч" % (p, _hours(c)) for p, c in people])
+    if rng[0] == rng[1]:
+        return "\n".join(["%s за %s" % (s, blocks[0][0])] + blocks[0][1:])
+    return "\n\n".join([head] + ["\n".join(b) for b in blocks])
 
 
 def _range_text(rng):
