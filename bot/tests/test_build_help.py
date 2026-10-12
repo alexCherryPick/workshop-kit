@@ -32,6 +32,121 @@ def registry_names(path):
     return re.findall(r'^    name: "(.*)"$', body, re.M)
 
 
+def registry_ids(path):
+    """Независимый читатель: id позиций из сырого текста (строки `  - id: ` внутри commands:)."""
+    with open(path, encoding="utf-8") as fh:
+        body = fh.read().split("\ncommands:\n", 1)[1]
+    return re.findall(r"^  - id: (\S+)$", body, re.M)
+
+
+def registry_tokens(path):
+    with open(path, encoding="utf-8") as fh:
+        body = fh.read().split("\ncommands:\n", 1)[1]
+    return sorted({t for t in re.findall(r'^    token: "(.*)"$', body, re.M) if t})
+
+
+def help_page_raw_text(text):
+    return text.split("\nhelp_page:\n", 1)[1].split("\ncommands:\n", 1)[0]
+
+
+def help_page_raw(path):
+    """Сырой текст макета справки (между `help_page:` и `commands:`) — для проверки литералов команд."""
+    with open(path, encoding="utf-8") as fh:
+        return help_page_raw_text(fh.read())
+
+
+
+def token_by_id(path):
+    """Независимый читатель: id позиции → токен (литералов команд в тесте нет)."""
+    with open(path, encoding="utf-8") as fh:
+        body = fh.read().split("\ncommands:\n", 1)[1]
+    out, cur = {}, None
+    for ln in body.split("\n"):
+        m = re.match(r"^  - id: (\S+)$", ln)
+        if m:
+            cur = m.group(1); continue
+        m = re.match(r'^    token: "(.*)"$', ln)
+        if m and cur:
+            out[cur] = m.group(1)
+    return out
+
+
+_PARSER = None
+
+
+def _parser():
+    global _PARSER
+    if _PARSER is None:
+        sys.path.insert(0, _BOT)
+        import parse  # noqa: E402 — оракул сообщений: настоящий разбор, как у бота
+        _PARSER = parse.Parser(COMMANDS, bot_username="cp_workshop_test_bot")
+    return _PARSER
+
+
+def page_items(raw):
+    """Независимый читатель макета: элементы `  - ключ: …` с полями `    ключ: …` в ЛЮБОМ порядке; значения в двойных,
+    одинарных кавычках или без них (R2-02, R2-03 — без молчаливых пропусков)."""
+    items, cur = [], None
+    for ln in raw.split("\n"):
+        m = re.match(r"^  - (\w+): ?(.*)$", ln)
+        if m:
+            cur = {m.group(1): _scalar(m.group(2))}; items.append(cur); continue
+        m = re.match(r"^    (\w+): ?(.*)$", ln)
+        if m and cur is not None:
+            cur[m.group(1)] = _scalar(m.group(2)); continue
+        if ln.strip() and not ln.lstrip().startswith("#"):
+            raise AssertionError("макет: строка вне формы элемента: %r" % ln)
+    return items
+
+
+def _scalar(v):
+    v = v.strip()
+    if len(v) >= 2 and v[0] == v[-1] == '"':
+        return v[1:-1]
+    if len(v) >= 2 and v[0] == v[-1] == "'":
+        return v[1:-1].replace("''", "'")
+    return v
+
+
+def page_prose(raw):
+    """Все значения text / note / lead макета (любые кавычки) — где литералы команд запрещены."""
+    return [it[k] for it in page_items(raw) for k in ("text", "note", "lead") if k in it]
+
+
+def mismatched_examples(raw):
+    """Элементы `ex` макета, у которых нет line или line не разбирается в объявленную позицию (обёртка wrapped_by —
+    тоже позиция). Каждый элемент ex проверяется; извлечение не зависит от порядка полей."""
+    exs = [it for it in page_items(raw) if "ex" in it]
+    assert exs, "в макете нет примеров"
+    bad = []
+    for it in exs:
+        pid, line = it["ex"], it.get("line")
+        if not line:
+            bad.append((pid, None, "нет line", None)); continue
+        r = _parser().parse({"update_id": 1, "message": {"message_id": 1, "date": 1788790990, "chat": {"id": 1, "type": "private"},
+                                                         "from": {"id": 1, "first_name": "Dev"}, "text": line}})
+        if r.get("kind") != "input" or pid not in (r.get("position"), r.get("wrapped_by")):
+            bad.append((pid, line, r.get("position"), r.get("wrapped_by")))
+    return bad
+
+def help_positions(text):
+    """Каждая строка справки с отступом — сообщение, которое бот принимает: часть до « — » разбирается парсером.
+    Возвращает (список (сообщение, разбор), множество представленных позиций, включая обёртку)."""
+    rows, seen = [], set()
+    for ln in text.split("\n"):
+        if not ln.startswith("  "):
+            continue
+        msg = ln[2:].split(" — ", 1)[0]
+        r = _parser().parse({"update_id": 1, "message": {"message_id": 1, "date": 1788790990, "chat": {"id": 1, "type": "private"},
+                                                         "from": {"id": 1, "first_name": "Dev"}, "text": msg}})
+        rows.append((msg, r))
+        if r.get("kind") == "input":
+            seen.add(r["position"])
+            if r.get("wrapped_by"):
+                seen.add(r["wrapped_by"])
+    return rows, seen
+
+
 def steps_count(path):
     with open(path, encoding="utf-8") as fh:
         text = fh.read()
@@ -49,13 +164,16 @@ class ProjectionTests(unittest.TestCase):
 
     def test_help_short_block_cover_every_position(self):
         names = registry_names(COMMANDS)
-        for sub in ("help", "short", "commands-block"):
+        for sub in ("short", "commands-block"):
             rc, out = run(sub)
             self.assertEqual(rc, 0, out)
             for n in names:
                 self.assertIn(n, out, "%s: нет позиции %r" % (sub, n))
+        # [D19 M2, 2026-10-12: справка — по макету help_page; её полнота — HelpPageTests: каждая позиция реестра
+        # представлена примером, который принимает парсер (прежнее «имя позиции в справке» — для справки без макета).]
         rc, out = run("help")
-        self.assertIn("позиций в реестре: %d" % len(names), out)   # D15: число — из реестра
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(help_positions(out)[1], set(registry_ids(COMMANDS)))
 
     def test_deterministic(self):
         for sub in ("help", "short", "commands-block", "steps-block"):
@@ -127,6 +245,133 @@ class ProjectionTests(unittest.TestCase):
             tok = n.split(" ")[0]
             if tok.startswith("/") or tok.startswith("!"):
                 self.assertNotIn(tok, prose, "литерал команды в прозе инструкции: %s" % tok)
+
+
+class HelpPageTests(unittest.TestCase):
+    """[D19 M2, 2026-10-12, слово alex] Справка по макету help_page: примеры первым экраном, команды — сценариями."""
+
+    def test_every_indented_line_is_accepted_message(self):
+        rc, out = run("help")
+        self.assertEqual(rc, 0, out)
+        rows, _ = help_positions(out)
+        self.assertTrue(rows)
+        for msg, r in rows:
+            self.assertEqual(r.get("kind"), "input", "пример справки бот не примет: %r → %r" % (msg, r.get("reason")))
+            m = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", msg)
+            if m:
+                self.assertEqual(r.get("date"), m.group(1), "дата примера не прочитана: %r" % msg)
+
+    def test_every_position_represented_and_tokens_complete(self):
+        rc, out = run("help")
+        _, seen = help_positions(out)
+        self.assertEqual(seen, set(registry_ids(COMMANDS)))
+        lexical = set(re.findall(r"(?<![\w@])/[a-z_]+\b", out))
+        self.assertEqual(lexical, set(registry_tokens(COMMANDS)))
+
+    def test_each_example_matches_declared_position(self):
+        """R1-05: пример `ex: <id>` разбирается именно в позицию id (подтверждение — обёрткой wrapped_by)."""
+        bad = mismatched_examples(help_page_raw(COMMANDS))
+        self.assertEqual(bad, [])
+
+    def test_runtime_broken_page_falls_back(self):
+        """R1-02: испорченный макет в рантайме не роняет ответ — прежний перечень; CLI — отказ."""
+        code = ("import sys; sys.path[:0] = [%r, %r]; import build_help as b; d = b.load_commands(sys.argv[1]); "
+                "d['help_page'] = [x if x.get('ex') != 'last' else dict(x, ex='nonexistent') for x in d['help_page']] + [42]; "
+                "t = b.render_help(d, b.load_forms(sys.argv[2])); print('LEGACY' if t.startswith('Команды бота') else 'PAGE')"
+                % (_KIT, _BOT))
+        p = subprocess.run([PY, "-c", code, COMMANDS, os.path.join(_KIT, "duration-forms.yaml")], capture_output=True)
+        self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
+        self.assertEqual(p.stdout.decode().strip(), "LEGACY")
+
+    def test_fits_one_message_and_no_registry_jargon(self):
+        rc, out = run("help")
+        self.assertLessEqual(len(out), 4096)
+        for jargon in ("позиций в реестре", "реестр", "push", "дневн"):
+            self.assertNotIn(jargon, out)
+
+    def test_page_text_has_no_command_literals(self):
+        prose = "\n".join(page_prose(help_page_raw(COMMANDS)))
+        for tok in registry_tokens(COMMANDS):
+            self.assertNotIn(tok, prose, "литерал команды в тексте макета (нужна подстановка {token:…}): %s" % tok)
+
+    def test_mutation_batch(self):
+        """Матрица мутаций макета пакетом: ошибки макета — отказ генератора; порча примера/потеря позиции — красный
+        оракул; законная перестановка — зелёный оракул."""
+        with open(COMMANDS, encoding="utf-8") as fh:
+            base = fh.read()
+        tmp = tempfile.mkdtemp(prefix="hp-")
+
+        def gen(text):
+            p = os.path.join(tmp, "commands.yaml")
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            return run("help", "--commands", p)
+
+        def once(old, new):
+            self.assertEqual(base.count(old), 1, old)
+            return base.replace(old, new)
+        try:
+            # отказ генератора (rc != 0): неизвестная позиция, неизвестная форма, неизвестная подстановка
+            for bad in (once("  - ex: last\n", "  - ex: nonexistent\n"),
+                        once("units_short_leading, minutes_short_only", "units_short_leading, no_such_form"),
+                        once("из {token:last};", "из {token:nope};")):
+                rc, out = gen(bad)
+                self.assertNotEqual(rc, 0, "генератор принял испорченный макет")
+            # порча примера: бот такое сообщение не примет → оракул красный
+            stop = token_by_id(COMMANDS)["stop"]
+            rc, out = gen(once('    line: "%s 18:30"' % stop, '    line: "%s 25:99"' % stop))
+            self.assertEqual(rc, 0)
+            self.assertTrue(any(r.get("kind") != "input" for _, r in help_positions(out)[0]))
+            # потеря позиции в макете: справка всё равно полна (позиция — в конце парой name — help_text)
+            last = token_by_id(COMMANDS)["last"]
+            m = re.search(r'^  - ex: last\n    line: ".*"\n(?:    note: ".*"\n)?', base, re.M)
+            self.assertIsNotNone(m)
+            dup = m.group(0)
+            rc, out = gen(once(dup, ""))
+            self.assertEqual(rc, 0)
+            self.assertIn('%s [N] — ' % last, out)
+            rows, seen = help_positions(out)
+            self.assertTrue(all(r.get("kind") == "input" for _, r in rows), "резервный пример позиции бот не примет")
+            self.assertIn("last", seen)
+            rc, out = gen(once('    lead: "Ещё можно так: "', '    lead: "{token:nonexistent} Ещё можно так: "'))
+            self.assertNotEqual(rc, 0, "lead с неизвестной подстановкой принят")
+            # дубликат примера: генератор не падает, строка повторена (вид — решение макета)
+            rc, out = gen(once(dup, dup + dup))
+            self.assertEqual(rc, 0)
+            self.assertEqual(out.count("\n  %s — " % last), 2)
+            # законная перестановка двух секций: оракул зелёный, вывод другой
+            a = '  - text: "Отрезком времени:"\n'
+            rc0, out0 = run("help")
+            rc, out = gen(once(a, "") .replace('  - text: "Секундомером:"\n', a + '  - text: "Секундомером:"\n', 1))
+            self.assertEqual(rc, 0)
+            self.assertNotEqual(out, out0)
+            self.assertTrue(all(r.get("kind") == "input" for _, r in help_positions(out)[0]))
+            # R1-05: перестановка line у двух примеров разных позиций — оракул «пример ↔ позиция» красный
+            help_tok = token_by_id(COMMANDS)["help"]
+            sw = base.replace('    line: "%s"\n' % last, '    line: "@@L"\n', 1).replace('    line: "%s"\n' % help_tok, '    line: "%s"\n' % last, 1).replace('    line: "@@L"\n', '    line: "%s"\n' % help_tok, 1)
+            self.assertNotEqual(sw, base)
+            self.assertTrue(mismatched_examples(help_page_raw_text(sw)))
+            # R2-02: та же перестановка при другом допустимом порядке полей (note между ex и line) — не пропускается
+            ms = re.search(r'^  - ex: start_title\n    line: (".*")\n    note: (".*")\n', base, re.M)
+            mn = re.search(r'^  - ex: start_n\n    line: (".*")\n    note: (".*")\n', base, re.M)
+            self.assertTrue(ms and mn)
+            ro = base.replace(ms.group(0), "  - ex: start_title\n    note: %s\n    line: %s\n" % (ms.group(2), mn.group(1)), 1) \
+                     .replace(mn.group(0), "  - ex: start_n\n    note: %s\n    line: %s\n" % (mn.group(2), ms.group(1)), 1)
+            rc, out = gen(ro)
+            self.assertEqual(rc, 0)
+            self.assertEqual(len(mismatched_examples(help_page_raw_text(ro))), 2)
+            # R2-03: литерал команды в lead в одинарных кавычках — находится проверкой литералов
+            stop_tok = token_by_id(COMMANDS)["stop"]
+            lq = once('    lead: "Ещё можно так: "', "    lead: '%s — конец; ещё форма: '" % stop_tok)
+            rc, out = gen(lq)
+            self.assertEqual(rc, 0)
+            self.assertTrue(any(stop_tok in v for v in page_prose(help_page_raw_text(lq))))
+            # без макета — прежняя справка (обратная совместимость проекции)
+            rc, out = gen(base.replace("\nhelp_page:\n", "\nhelp_page_off:\n", 1))
+            self.assertEqual(rc, 0)
+            self.assertIn("позиций в реестре: %d" % len(registry_ids(COMMANDS)), out)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":

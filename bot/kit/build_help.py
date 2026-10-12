@@ -20,6 +20,7 @@
 """
 import argparse
 import os
+import re
 import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -90,7 +91,97 @@ def forms_examples_line(forms_doc):
 
 
 # ------------------------------------------------------------------ проекции
-def render_help(doc, forms_doc=None):
+_SUBST_RE = re.compile(r"\{(token:[a-z_]+|confirm_prefix)\}")
+
+
+class HelpPageError(ValueError):
+    """Испорченный макет справки. CLI (`help`) — отказ; рантайм бота — прежний перечень (D19 M2 R1-02)."""
+
+
+def _subst(doc, text):
+    """Подстановки макета справки: {token:<id>} и {confirm_prefix} — из реестра (литералов команд в макете нет)."""
+    if not isinstance(text, str):
+        raise HelpPageError("макет справки: ожидалась строка, получено %r" % (text,))
+    by_id = {c["id"]: c for c in doc["commands"]}
+
+    def one(m):
+        key = m.group(1)
+        if key == "confirm_prefix":
+            return doc["confirm_prefix"]
+        pid = key.split(":", 1)[1]
+        if pid not in by_id or not by_id[pid]["token"]:
+            raise HelpPageError("макет справки: подстановка {%s} — нет позиции с токеном" % key)
+        return by_id[pid]["token"]
+    out = _SUBST_RE.sub(one, text)
+    if "{" in out or "}" in out:
+        raise HelpPageError("макет справки: неразобранная подстановка в %r" % text)
+    return out
+
+
+def _form_examples(forms_doc, ids):
+    if not isinstance(ids, list):
+        raise HelpPageError("макет справки: список форм — не список: %r" % (ids,))
+    by_id = {f["id"]: f for f in forms_doc["forms"]}
+    missing = [i for i in ids if i not in by_id]
+    if missing:
+        raise HelpPageError("макет справки: форм нет в реестре длительности: %s" % ", ".join(map(str, missing)))
+    return [by_id[i]["example"] for i in ids]
+
+
+def render_help_page(doc, forms_doc=None):
+    """Справка по макету help_page (D19 M2): примеры первым экраном, команды — сценариями. Без реестра форм
+    (forms_doc=None) строки форм пропускаются. Позиция без примера в макете — в конце: «name — help_text» и её
+    example с отступом (каждая строка с отступом — сообщение, которое бот примет). Ошибка макета — HelpPageError."""
+    ids = {c["id"] for c in doc["commands"]}
+    page = doc["help_page"]
+    if not isinstance(page, list):
+        raise HelpPageError("макет справки: help_page — не список")
+    out, shown = [], set()
+    for item in page:
+        if not isinstance(item, dict):
+            raise HelpPageError("макет справки: элемент — не отображение: %r" % (item,))
+        if "text" in item:
+            out.append(_subst(doc, item["text"]))
+        elif "ex" in item:
+            if item["ex"] not in ids:
+                raise HelpPageError("макет справки: позиции %r нет в реестре" % (item["ex"],))
+            if not isinstance(item.get("line"), str) or not item["line"]:
+                raise HelpPageError("макет справки: у примера %r нет line" % (item["ex"],))
+            shown.add(item["ex"])
+            line = "  " + item["line"]
+            if item.get("note"):
+                line += " — " + _subst(doc, item["note"])
+            out.append(line)
+        elif "forms_block" in item:
+            if forms_doc:
+                out.extend("  " + e for e in _form_examples(forms_doc, item["forms_block"]))
+                shown.add("free_text")
+        elif "forms_line" in item:
+            if forms_doc:
+                out.append(_subst(doc, item.get("lead", "")) + " · ".join("«%s»" % e for e in _form_examples(forms_doc, item["forms_line"])))
+        else:
+            raise HelpPageError("макет справки: неизвестный элемент %r" % sorted(item))
+    rest = [c for c in doc["commands"] if c["id"] not in shown]
+    if rest:
+        out.append("")
+        for c in rest:
+            out.append("%s — %s" % (c["name"], c["help_text"]))
+            out.append("  %s" % c["example"])
+    return "\n".join(out) + "\n"
+
+
+def render_help(doc, forms_doc=None, strict=False):
+    """Ответ на справку. С макетом help_page — по макету; испорченный макет: strict (CLI) — отказ, иначе (рантайм
+    бота) — прежний перечень, чтобы поллер не останавливался на ошибке справки (D19 M2 R1-02)."""
+    if doc.get("help_page"):
+        try:
+            return render_help_page(doc, forms_doc)
+        except HelpPageError as e:
+            if strict:
+                raise SystemExit(str(e))
+        except Exception as e:   # noqa: BLE001 — рантайм: любая порча макета не роняет цикл
+            if strict:
+                raise
     cmds = doc["commands"]
     out = ["Команды бота (позиций в реестре: %d):" % len(cmds)]
     for c in cmds:
@@ -216,7 +307,7 @@ def main(argv=None):
         ap.print_help()
         return 2
     if args.cmd == "help":
-        sys.stdout.write(render_help(load_commands(args.commands), load_forms(args.forms)))
+        sys.stdout.write(render_help(load_commands(args.commands), load_forms(args.forms), strict=True))
     elif args.cmd == "short":
         sys.stdout.write(render_short(load_commands(args.commands)))
     elif args.cmd == "forms-line":
