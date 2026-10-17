@@ -2,6 +2,8 @@
 """Оракул git-слоя (T3): Р1, писатель двух файлов (ленивое создание, append-only, дозавершение LF,
 тождество), коммит/пуш с ретраями, трасса. git-факты — командами git; ожидания байтов — regex/cmp."""
 import os, re, shutil, subprocess, sys, tempfile, unittest
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gitquiet  # noqa: E402,F401 — автообслуживание git выключено (флейк maintenance.lock)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import commit as cm  # noqa: E402
 

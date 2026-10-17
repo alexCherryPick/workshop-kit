@@ -2,6 +2,8 @@
 """Оракул сканера и хука: паттерны читаются тестом ИЗ реестра построчным регэкспом (не через
 secrets.load_patterns для ожиданий); образцы секретов — синтетические; хук гоняется в ЭФЕМЕРНОМ КЛОНЕ."""
 import hashlib, os, re, shutil, subprocess, sys, tempfile, unittest
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gitquiet  # noqa: E402,F401 — автообслуживание git выключено (флейк maintenance.lock)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import secrets as secrets_mod, yamlmini  # noqa: E402
 

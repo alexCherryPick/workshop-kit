@@ -9,6 +9,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gitquiet  # noqa: E402,F401 — автообслуживание git выключено (флейк maintenance.lock)
 
 _BOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ROOT = os.path.dirname(_BOT)

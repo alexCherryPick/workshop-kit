@@ -19,9 +19,12 @@
 Коды выхода: 0 — прогон состоялся (в том числе с переспросами); 2 — исход класса 10–13; 10 — сбой самого поллера.
 """
 
+import json
+import math
 import os
 import re
 import sys
+import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
@@ -797,6 +800,130 @@ def _revert(root, paths, ctx):
 
 
 # -------------------------------------------------------------------- вход обёртки
+# --- D19 M5 (слово alex 2026-10-16): транзиентный сбой транспорта Telegram (известная сетевая ошибка: обрыв, таймаут,
+# сброс — kind "network"; либо HTTP/API 429 и 5xx) не алармит сразу — демон повторяет цикл через секунды, offset не
+# продвинут, данных не теряется. Алярм — когда удачного цикла нет TRANSPORT_ALARM_AFTER_S, затем не чаще
+# TRANSPORT_REALARM_EVERY_S после ДОСТАВЛЕННОГО алярма. Отметка — локальный файл в самоигнорируемом .workshop-bin/ (в git
+# не попадает, переживает циклы демона). Консервативно (алярм сразу): нет отметки, порча, нечисловое/нефинитное/вне
+# диапазона/будущее время, отметку не удалось обновить, любой сбой самого решения, непонятный ответ протокола, 4xx кроме
+# 429, любое не-транспортное исключение. CI-форма (свежий прогон без отметки) — как раньше: алярм сразу.
+TRANSPORT_ALARM_AFTER_S = 600
+TRANSPORT_REALARM_EVERY_S = 3600
+TRANSPORT_MARK = os.path.join(".workshop-bin", "poller-transport.json")
+# Непрерывность: подавление опирается на ЦЕПОЧКУ циклов, каждый из которых обновил отметку (last_seen). Разрыв больше
+# TRANSPORT_CONTINUITY_S (демон после сбоя ждёт WORKSHOP_DAEMON_FAILURE_BACKOFF_SECONDS, умолчание 60) значит, что был
+# неучтённый цикл (например, удачный, не сумевший записать отметку) — подавлению не доверяем (Codex R2-01). Пауза
+# заказчика больше порога — подавление не включается вовсе: алярм сразу, как до M5.
+TRANSPORT_CONTINUITY_S = 300
+_MARK_TS_MAX = 1e11                       # ~ 5138 год: всё больше — порча, не время
+_now = time.time
+
+
+def _is_transient_transport(e):
+    if not isinstance(e, tg.TransportError):
+        return False
+    code = getattr(e, "error_code", None)
+    if isinstance(code, int) and not isinstance(code, bool):
+        return code == 429 or 500 <= code <= 599
+    return getattr(e, "kind", None) == "network"
+
+
+def _ts(v):
+    """Время отметки — конечное число секунд в разумном диапазоне, иначе None."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    try:
+        f = float(v)
+    except (OverflowError, ValueError):
+        return None
+    return f if (math.isfinite(f) and 0 < f < _MARK_TS_MAX) else None
+
+
+def _read_mark(root):
+    try:
+        with open(os.path.join(root, TRANSPORT_MARK), encoding="utf-8") as fh:
+            d = json.load(fh)
+    except Exception:                     # noqa: BLE001 — нет файла, порча, RecursionError глубины, плохая кодировка
+        return None
+    if not isinstance(d, dict):
+        return None
+    ok = _ts(d.get("last_ok"))
+    if ok is None:
+        return None
+    raw_al = d.get("alarmed_at")
+    al = _ts(raw_al)
+    if raw_al is not None and al is None:
+        return None                       # любое испорченное поле — отметке целиком не доверяем
+    seen = _ts(d.get("last_seen"))
+    if seen is None or seen < ok:
+        return None
+    return {"last_ok": ok, "alarmed_at": al, "last_seen": seen}
+
+
+def _write_mark(root, last_ok, alarmed_at=None, last_seen=None):
+    """Атомарно; → True при успехе. Сбой записи поллер не роняет (решение по отметке тогда — алярм)."""
+    path = os.path.join(root, TRANSPORT_MARK)
+    tmp = path + ".tmp"
+    try:
+        d = os.path.dirname(path)
+        os.makedirs(d, exist_ok=True)
+        gi = os.path.join(d, ".gitignore")
+        if not os.path.exists(gi):        # каталог самоигнорируемый — контракт установщика (install.py: `*`)
+            with open(gi, "w", encoding="utf-8") as fh:
+                fh.write("*\n")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({"last_ok": last_ok, "alarmed_at": alarmed_at, "last_seen": last_ok if last_seen is None else last_seen}, fh)
+        os.replace(tmp, path)
+        return True
+    except OSError as e:
+        sys.stdout.write("transport-mark: не записана (%s)\n" % e)
+        return False
+
+
+def _mark_success(root, now):
+    """Удачный цикл: отметка = now, подавление сброшено. Не записалась — убрать старую (иначе её подавление переживёт
+    восстановление); не убралась — следующее решение всё равно алармит: оно требует успешной записи отметки."""
+    if not _write_mark(root, now):
+        try:
+            os.remove(os.path.join(root, TRANSPORT_MARK))
+        except OSError:
+            pass
+
+
+def _transport_alarm_decision(root, now):
+    """→ (alarm: bool, text_suffix: str). Подавление — только при валидной отметке И её успешном обновлении."""
+    try:
+        m = _read_mark(root)
+        if m is None:
+            return True, ""
+        age = now - m["last_ok"]
+        if age < 0 or not (0 <= now - m["last_seen"] <= TRANSPORT_CONTINUITY_S):
+            return True, ""               # отметка из будущего или цепочка циклов прервана — не доверяем
+        al = m["alarmed_at"]
+        if al is not None and not (m["last_ok"] <= al <= now):
+            return True, ""               # окно повтора вне [last_ok, now] — порча, не доверяем
+        if age < TRANSPORT_ALARM_AFTER_S:
+            why = "удачный цикл %d с назад (< %d) — алярм отложен" % (age, TRANSPORT_ALARM_AFTER_S)
+        elif al is not None and now - al < TRANSPORT_REALARM_EVERY_S:
+            why = "сбой длится %d с, алярм доставлен %d с назад — повтор не чаще %d с" % (age, now - al, TRANSPORT_REALARM_EVERY_S)
+        else:
+            return True, " — удачного цикла нет %d мин" % (age // 60)
+        if not _write_mark(root, m["last_ok"], al, now):
+            return True, ""               # отметку нельзя вести — подавлению не доверяем
+        sys.stdout.write("transport: транзиентный сбой, %s\n" % why)
+        return False, ""
+    except Exception as e:                # noqa: BLE001 — решение не роняет аварийный контур
+        sys.stdout.write("transport: сбой решения (%s) — алярм\n" % type(e).__name__)
+        return True, ""
+
+
+def _mark_alarmed(root, now):
+    """Алярм ДОСТАВЛЕН хотя бы одному адресату — начало окна повтора."""
+    m = _read_mark(root)
+    if m is not None:
+        _write_mark(root, m["last_ok"], now, now)
+
+
 def _emergency_alarm(transport, cfg, people, text):
     """Аварийный алярм без Ctx (раунд 4 W1, раунд 5 W1): адресаты — по карте людей (прочитана заранее) либо по явному
     watchdog.alarm_to; нужен только транспорт. Контур ЗАМКНУТ относительно собственных ошибок: порченая секция
@@ -809,13 +936,17 @@ def _emergency_alarm(transport, cfg, people, text):
         except Exception as e:
             sys.stdout.write("alarm: адресаты не разрешены (%s) — по карте admins\n" % e)
             targets = identity_mod.alarm_targets(people if isinstance(people, list) else [], "admins")
+        delivered = 0
         for t in targets:
             try:
                 transport.send_message(t, "⚠ сторож бота: " + text)
+                delivered += 1
             except Exception as e:
                 sys.stdout.write("alarm недоставлен %s: %s\n" % (t, e))
+        return delivered
     except Exception as e:
         sys.stdout.write("alarm: сбой аварийного контура: %s\n" % e)
+        return 0
 
 
 def main():
@@ -841,8 +972,14 @@ def main():
     except Exception as e:
         sys.stdout.write("TOOL_FAILURE %s: %s\n" % (type(e).__name__, e))
         if transport is not None and cfg is not None:
-            _emergency_alarm(transport, cfg, people, "сбой поллера (%s): %s" % (type(e).__name__, str(e)[:200]))
+            transient = _is_transient_transport(e)
+            alarm, suffix = (_transport_alarm_decision(root, _now()) if transient else (True, ""))
+            if alarm:
+                n = _emergency_alarm(transport, cfg, people, "сбой поллера (%s): %s%s" % (type(e).__name__, str(e)[:200], suffix))
+                if transient and n:
+                    _mark_alarmed(root, _now())
         return 10
+    _mark_success(root, _now())
     sys.stdout.write("\n".join(ctx.trace.lines()) + "\n")
     sys.stdout.write("processed=%d outcomes=%s held=%s\n" % (result["processed"], result["outcomes"], result["held"]))
     return 2 if result["held"] else 0

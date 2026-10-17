@@ -26,11 +26,15 @@ _TOKEN_MASK = "<token>"
 class TransportError(RuntimeError):
     """Ошибка транспорта: сеть, не-JSON ответ, ok=false. Текст никогда не содержит токен."""
 
-    def __init__(self, message, method=None, description=None, error_code=None):
+    def __init__(self, message, method=None, description=None, error_code=None, kind=None):
         RuntimeError.__init__(self, message)
         self.method = method
         self.description = description
         self.error_code = error_code
+        # D19 M5: вид отказа — "network" (сеть/таймаут/обрыв: известно, что ответа не было), "http" (HTTP-статус без
+        # разборчивого тела; error_code = статус), "api" (ok=false; error_code — из тела), "protocol" (не-JSON / порченый
+        # конверт при 2xx), None — прочее (конфиг транспорта). Транзиентность решает вызывающий (poll), не транспорт.
+        self.kind = kind
 
 
 def default_opener(url, data_bytes, timeout_s):
@@ -43,11 +47,17 @@ def default_opener(url, data_bytes, timeout_s):
             return resp.read()
     except urllib.error.HTTPError as e:
         try:
-            return e.read()
+            body = e.read()
         except Exception:  # noqa: BLE001 — тело недоступно: отдаём ошибку выше
-            raise TransportError("http error %s" % e.code)
+            raise TransportError("http error %s" % e.code, error_code=e.code, kind="http")
+        try:
+            json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError):
+            # тело не JSON API (страница прокси/CDN, пусто) — HTTP-статус сохраняется: 401/403 не теряются (D19 M5)
+            raise TransportError("http error %s (non-json body)" % e.code, error_code=e.code, kind="http")
+        return body                          # JSON API c ok=false — разбор и error_code делает Transport
     except urllib.error.URLError as e:
-        raise TransportError("network error: %s" % _mask(str(e.reason), None))
+        raise TransportError("network error: %s" % _mask(str(e.reason), None), kind="network")
 
 
 def _mask(text, token):
@@ -82,24 +92,26 @@ class Transport(object):
         try:
             raw = self._opener(url, data, self._timeout_s)
         except TransportError as e:
-            raise TransportError("%s: %s" % (method, _mask(str(e), self._token)), method=method)
+            raise TransportError("%s: %s" % (method, _mask(str(e), self._token)), method=method,
+                                 description=e.description, error_code=e.error_code, kind=e.kind)   # метаданные не теряются
         except (OSError, http.client.HTTPException) as e:
             # граница транспорта ЗАМКНУТА (раунд 8 T8, Codex B1): любая сетевая/HTTP ошибка открытия ИЛИ чтения ответа
             # (таймаут, сброс соединения, RemoteDisconnected, IncompleteRead) — TransportError, не сырое исключение
             # поставщика; текст без токена
-            raise TransportError("%s: %s: %s" % (method, type(e).__name__, _mask(str(e), self._token)), method=method)
+            raise TransportError("%s: %s: %s" % (method, type(e).__name__, _mask(str(e), self._token)), method=method, kind="network")
         try:
             payload = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, ValueError) as e:
-            raise TransportError("%s: non-json response (%s)" % (method, e), method=method)
+            raise TransportError("%s: non-json response (%s)" % (method, e), method=method, kind="protocol")
         if not isinstance(payload, dict) or "ok" not in payload:
-            raise TransportError("%s: malformed response envelope" % method, method=method)
+            raise TransportError("%s: malformed response envelope" % method, method=method, kind="protocol")
         if payload["ok"] is not True:
             raise TransportError(
                 "%s: api error %s: %s" % (method, payload.get("error_code"), _mask(str(payload.get("description")), self._token)),
                 method=method,
                 description=payload.get("description"),
                 error_code=payload.get("error_code"),
+                kind="api",
             )
         return payload.get("result")
 

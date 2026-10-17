@@ -99,14 +99,59 @@ def page_items(raw):
     return items
 
 
-def _scalar(v):
-    v = v.strip()
-    if len(v) >= 2 and v[0] == v[-1] == '"':
-        return v[1:-1]
-    if len(v) >= 2 and v[0] == v[-1] == "'":
-        return v[1:-1].replace("''", "'")
-    return v
+_DQ_SIMPLE = {"0": "\0", "a": "\a", "b": "\b", "t": "\t", "\t": "\t", "n": "\n", "v": "\v", "f": "\f", "r": "\r",
+              "e": "\x1b", " ": " ", '"': '"', "/": "/", "\\": "\\", "N": "\x85", "_": "\xa0", "L": "\u2028", "P": "\u2029"}
+_DQ_HEX = {"x": 2, "u": 4, "U": 8}
 
+
+def _dq_decode(body):
+    """Escape-последовательности строки YAML в двойных кавычках — полный набор YAML 1.2 (надмножество того, что читает
+    продукт), собственный декодер оракула (B1: закодированный литерал команды не прячется). Неизвестный escape — отказ."""
+    out, i = [], 0
+    while i < len(body):
+        c = body[i]
+        if c != "\\":
+            out.append(c); i += 1; continue
+        if i + 1 >= len(body):
+            raise AssertionError("макет: оборванный escape в %r" % body)
+        e = body[i + 1]
+        if e in _DQ_SIMPLE:
+            out.append(_DQ_SIMPLE[e]); i += 2
+        elif e in _DQ_HEX:
+            n = _DQ_HEX[e]; h = body[i + 2:i + 2 + n]
+            if len(h) != n or not re.fullmatch(r"[0-9A-Fa-f]+", h):
+                raise AssertionError("макет: плохой \\%s escape в %r" % (e, body))
+            out.append(chr(int(h, 16))); i += 2 + n
+        else:
+            raise AssertionError("макет: неизвестный escape \\%s в %r" % (e, body))
+    return "".join(out)
+
+
+def _scalar(v):
+    """Значение поля макета: "двойные" (escape раскрываются), 'одинарные' ('' → '), plain; хвостовой комментарий
+    ` # …` вне кавычек снимается. Любая иная форма (текст после закрывающей кавычки, незакрытая кавычка) — отказ
+    оракула, а не сырое значение (M4 P2)."""
+    v = v.strip()
+    if v[:1] in ('"', "'"):
+        q, i, buf = v[0], 1, []
+        while i < len(v):
+            c = v[i]
+            if q == '"' and c == "\\":
+                buf.append(v[i:i + 2]); i += 2; continue
+            if c == q:
+                if q == "'" and v[i + 1:i + 2] == "'":
+                    buf.append("'"); i += 2; continue
+                break
+            buf.append(c); i += 1
+        else:
+            raise AssertionError("макет: незакрытая кавычка: %r" % v)
+        rest = v[i + 1:]
+        if rest.strip() and not re.match(r"^[ \t]+#", rest):
+            raise AssertionError("макет: текст после закрывающей кавычки: %r" % v)
+        body = "".join(buf)
+        return _dq_decode(body) if q == '"' else body
+    m = re.search(r"[ \t]#", v)
+    return v[:m.start()].rstrip() if m else v
 
 def page_prose(raw):
     """Все значения text / note / lead макета (любые кавычки) — где литералы команд запрещены."""
@@ -366,6 +411,29 @@ class HelpPageTests(unittest.TestCase):
             rc, out = gen(lq)
             self.assertEqual(rc, 0)
             self.assertTrue(any(stop_tok in v for v in page_prose(help_page_raw_text(lq))))
+            # B1: литерал команды, закодированный escape-последовательностью двойных кавычек, — тоже находится
+            enc = "".join("\\u%04x" % ord(ch) if ch == "/" else ch for ch in stop_tok)
+            # исход каждой формы закреплён (M4 P3): \\u, \\U, \\/ продукт читает → литерал в ответе и найден оракулом
+            # (в том числе с хвостовым комментарием — M4 P2); \\x продукт не читает → отказ генератора
+            forms = [(enc, True), (stop_tok.replace("/", "\\U0000002f", 1), True), (stop_tok.replace("/", "\\/", 1), True),
+                     (stop_tok.replace("/", "\\x2f", 1), False)]
+            for form, readable in forms:
+                for tail in ("", " # комментарий"):
+                    le = once('    lead: "Ещё можно так: "', '    lead: "%s — конец; ещё форма: "%s' % (form, tail))
+                    rc, out = gen(le)
+                    if not readable:
+                        self.assertNotEqual(rc, 0, form); continue
+                    self.assertEqual(rc, 0, form + tail)
+                    self.assertIn(stop_tok + " — конец", out, form + tail)
+                    self.assertTrue(any(stop_tok in v for v in page_prose(help_page_raw_text(le))), form + tail)
+            # text с escape-литералом и комментарием (воспроизведение P2) — тоже находится
+            te = base.replace("\nhelp_page:\n", '\nhelp_page:\n  - text: "%s" # audit\n' % enc, 1)
+            self.assertTrue(any(stop_tok in v for v in page_prose(help_page_raw_text(te))))
+            # неподдержанная форма значения — отказ оракула, а не сырое значение
+            with self.assertRaises(AssertionError):
+                page_prose('  - text: "незакрытая\n')
+            with self.assertRaises(AssertionError):
+                page_prose('  - text: "а" лишнее\n')
             # без макета — прежняя справка (обратная совместимость проекции)
             rc, out = gen(base.replace("\nhelp_page:\n", "\nhelp_page_off:\n", 1))
             self.assertEqual(rc, 0)

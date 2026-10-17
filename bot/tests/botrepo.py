@@ -3,6 +3,9 @@
 транспортом. Оракульный хелпер — НЕ импортирует писателей ради ожиданий: ожидания тестов считаются
 из байтов файлов и git-журнала, а не из функций bot/. Использует stdlib + git."""
 import os, re, shutil, subprocess, tempfile
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gitquiet  # noqa: E402,F401 — автообслуживание git выключено для стенда (флейк maintenance.lock)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BOT = os.path.abspath(os.path.join(HERE, ".."))

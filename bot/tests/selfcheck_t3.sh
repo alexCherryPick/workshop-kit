@@ -10,7 +10,7 @@ BIN="${BIN:-$ROOT/validator/target/release/workshop-validator}"
 export WORKSHOP_VALIDATOR="$BIN"
 PY=python3; export PYTHONDONTWRITEBYTECODE=1
 WORK=$(mktemp -d); export WORK; trap 'rm -rf "$WORK"' EXIT
-SPEC_DIR="$ROOT/spec/09-tg-bot-time-line"; [ -d "$SPEC_DIR" ] || SPEC_DIR="$HOME/Analytics/cherrypick/workshop/output/format-spec/09-tg-bot-time-line"; export SPEC_DIR
+SPEC_DIR="$ROOT/spec/09-tg-bot-time-line"; export SPEC_DIR   # единственный экземпляр (D10 M0, REQ-110)
 TW="$SPEC_DIR/tg-bot.yaml"
 FAILS=0; PASSES=0
 ok() { echo "  PASS  $1"; PASSES=$((PASSES+1)); }

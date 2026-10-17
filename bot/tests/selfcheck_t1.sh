@@ -9,25 +9,12 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 2
 BIN="${BIN:-$HOME/repos/workshop/validator/target/release/workshop-validator}"
 GOLDEN_TS="${GOLDEN_TS:-$HOME/repos/workshop/golden/valid/TIMESHEET-2026-08-dev1.md}"
-# Каталог глав D09: в планировочном репо — output/format-spec/09-tg-bot-time-line; в монорепо —
-# зеркало spec/09-tg-bot-time-line (D05 §6.1: spec/ — спека как данные). SPEC_DIR переопределяет.
-SPEC_DIR="${SPEC_DIR:-}"
-if [ -z "$SPEC_DIR" ]; then
-  if [ -f spec/09-tg-bot-time-line/tg-bot.yaml ]; then SPEC_DIR=spec/09-tg-bot-time-line
-  else SPEC_DIR=output/format-spec/09-tg-bot-time-line; fi
-fi
+# Каталог глав D09 — spec/09-tg-bot-time-line монорепо, единственный экземпляр (D10 M0, REQ-110: зеркала
+# в планировочном репо больше нет). SPEC_DIR переопределяет.
+SPEC_DIR="${SPEC_DIR:-spec/09-tg-bot-time-line}"
 CH="$SPEC_DIR/00-bot-contract-and-kit.md"
 TW="$SPEC_DIR/tg-bot.yaml"
 export SPEC_DIR
-# Тождество зеркала: если рядом есть и оригинал планировочного репо, sha256 обязаны совпасть.
-ORIG_DIR="${ORIG_DIR:-$HOME/Analytics/cherrypick/workshop/output/format-spec/09-tg-bot-time-line}"
-if [ "$SPEC_DIR" != "$ORIG_DIR" ] && [ -f "$ORIG_DIR/tg-bot.yaml" ]; then
-  for f in tg-bot.yaml 00-bot-contract-and-kit.md; do
-    a=$(shasum -a 256 "$SPEC_DIR/$f" | cut -c1-16); b=$(shasum -a 256 "$ORIG_DIR/$f" | cut -c1-16)
-    echo "  mirror identity $f: spec=$a orig=$b"
-    [ "$a" = "$b" ] || { echo "  FAIL  зеркало spec/ расходится с оригиналом планировочного репо: $f"; exit 2; }
-  done
-fi
 PY=python3
 PASS_N=0; FAIL_N=0
 ok()  { echo "  PASS  $1"; PASS_N=$((PASS_N+1)); }
