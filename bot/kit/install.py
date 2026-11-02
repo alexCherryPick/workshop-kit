@@ -5,8 +5,12 @@
 говорит «путь → sha256 → назначение», этот скрипт СВЕРЯЕТ и исполняет. Подкоманды — по одной
 на шаг bootstrap-обёртки (предикат тонкой обёртки §2: один вызов на шаг, без аргументов-политик):
 
-  check-kit-ref   HEAD checkout'а комплекта == kit.ref из kit/validator-release.yaml (пин комплекта);
-                  плейсхолдер вместо SHA — отказ «пин не заполнен», не пропуск
+  check-kit-ref   HEAD checkout'а комплекта == kit.ref из kit/validator-release.yaml (пин комплекта) либо HEAD —
+                  релизный коммит ровно над kit.ref, меняющий только релизный слой: пины (манифест релиза, обёртки,
+                  манифест комплекта) и — у релиза заказчика R_c (D10 T7) — выходы генератора под его слой
+                  (profiles/out/**, profiles/sources-manifest.yaml); при них манифест комплекта обязан совпадать с
+                  манифестом kit.ref во всём, кроме sha256 изменённых источников и привязки customer_layer;
+                  origin checkout'а == kit.repository; плейсхолдер вместо SHA — отказ «пин не заполнен», не пропуск
   check-secrets   имена секретов из kit/install-steps.yaml присутствуют в окружении (значения не
                   печатаются): по реестру secrets И по шагам (поле required_secrets)
   layout          раскладка комплекта по манифесту: сверка sha256 источников, ДИФФ, запись;
@@ -103,10 +107,17 @@ _LINES_ROLE = "lines"          # D10: .gitignore — дописать недос
 _PLACEHOLDER = re.compile(r"\{\{[a-z][a-z_-]*: [^{}\n]*\}\}")
 _TMP_PREFIX = ".workshop-kit-tmp-"   # единственный адрес префикса временных файлов раскладки (_LayoutTxn, сирота)
 _TMP_ORPHAN = re.compile("^" + re.escape(_TMP_PREFIX) + r"[0-9]+-[0-9]+$")   # имя _LayoutTxn._tmp_write, ровно
-# файлы, которыми релизный коммит МОЖЕТ отличаться от кодового коммита kit.ref (check-kit-ref)
+# файлы, которыми релизный коммит МОЖЕТ отличаться от кодового коммита kit.ref (check-kit-ref): пины и — у релиза
+# заказчика (decide 2026-11-02 d10-customer-layer-delivery) — выходы генератора профилей под его слой с их пиннингом;
+# сами выходы раскладываются только через записи манифеста с sha256, код — тот самый K
 RELEASE_LAYER_PATHS = ("bot/kit/validator-release.yaml", "bot/kit/workflows/bootstrap.yml",
                        "bot/kit/workflows/poller.yml", "bot/kit/workflows/heartbeat.yml",
-                       "bot/kit/manifest.yaml")
+                       "bot/kit/manifest.yaml", "profiles/sources-manifest.yaml")
+RELEASE_LAYER_PREFIXES = ("profiles/out/",)
+
+
+def _in_release_layer(path):
+    return path in RELEASE_LAYER_PATHS or path.startswith(RELEASE_LAYER_PREFIXES)
 _KEEP_ROLES = ("config", "state")
 _MANUAL_ROLE = "manual"
 _WORKFLOW_ROLE = "workflow"
@@ -195,6 +206,33 @@ def _kit_root(args):
     return os.path.dirname(os.path.dirname(os.path.abspath(args.kit)))
 
 
+def _manifest_at(kit_root, commit):
+    r = subprocess.run(["git", "-C", kit_root, "show", "%s:bot/kit/manifest.yaml" % commit], capture_output=True)
+    try:
+        doc = yamlmini.loads(r.stdout.decode("utf-8")) if r.returncode == 0 else None
+    except (UnicodeDecodeError, yamlmini.YamlError):
+        doc = None
+    if not isinstance(doc, dict) or not isinstance(doc.get("entries"), list):
+        raise Refuse("манифест комплекта bot/kit/manifest.yaml коммита %s не читается — маршрут выходов под слой заказчика не проверить" % commit[:12])
+    return doc
+
+
+def _same_manifest_route(kit_root, k, r, changed):
+    def route(doc):
+        d = dict(doc)
+        d["entries"] = [dict(e, sha256=None) if isinstance(e, dict) and str(e.get("src")) in changed else e for e in doc["entries"]]
+        if isinstance(d.get("customer_layer"), dict):
+            d["customer_layer"] = dict(d["customer_layer"], sha256=None)
+        return d
+    mk, mr = route(_manifest_at(kit_root, k)), route(_manifest_at(kit_root, r))
+    if mk != mr:
+        ek, er = mk["entries"], mr["entries"]
+        diff = [str((er[i] if i < len(er) else ek[i]).get("src")) for i in range(max(len(ek), len(er)))
+                if i >= len(ek) or i >= len(er) or ek[i] != er[i]]
+        diff += sorted(x for x in set(mk) | set(mr) if x != "entries" and mk.get(x) != mr.get(x))
+        raise Refuse("релизный коммит %s несёт выходы под слой заказчика, а его манифест расходится с манифестом kit.ref %s не только sha256 изменённых файлов: %s — назначения и роли обязаны быть теми, что у K" % (r[:12], k[:12], ", ".join(diff[:8])))
+
+
 def cmd_check_kit_ref(args):
     rel_path = args.release or os.path.join(args.kit, "validator-release.yaml")
     doc = yamlmini.load_file(rel_path)
@@ -215,8 +253,9 @@ def cmd_check_kit_ref(args):
     if actual != expected:
         # РЕЛИЗНЫЙ СЛОЙ (находка живого прогона 2026-09-08): манифест не может назвать SHA собственного
         # коммита, поэтому релиз — это коммит R РОВНО НАД кодовым коммитом K = kit.ref, и R отличается от K
-        # ТОЛЬКО файлами пинов (манифест релиза, обёртка с пинами, манифест комплекта). Любой иной файл в
-        # R — отказ: код обязан быть тем самым K, который назван манифестом.
+        # ТОЛЬКО файлами релизного слоя: пины (манифест релиза, обёртки, манифест комплекта) и — у релиза
+        # заказчика R_c — выходы генератора под его слой (profiles/out/**, profiles/sources-manifest.yaml).
+        # Любой иной файл в R — отказ: код обязан быть тем самым K, который назван манифестом.
         parent = _git(kit_root, "rev-parse", "HEAD^")
         if parent.returncode != 0:
             shallow = _git(kit_root, "rev-parse", "--is-shallow-repository").stdout.strip() == "true"
@@ -225,10 +264,16 @@ def cmd_check_kit_ref(args):
             raise Refuse("пин комплекта расходится: HEAD checkout'а %s (корневой коммит), манифест релиза kit.ref %s" % (actual, expected))
         if parent.stdout.strip() != expected:
             raise Refuse("пин комплекта расходится: HEAD checkout'а %s, манифест релиза kit.ref %s (и HEAD не релизный слой над ним)" % (actual, expected))
-        changed = _git(kit_root, "diff", "--name-only", expected, actual).stdout.split()
-        extra = sorted(set(changed) - set(RELEASE_LAYER_PATHS))
+        # --no-renames: переименование кода в путь релизного слоя называет ОБЕ стороны (иначе виден только новый путь)
+        changed = _git(kit_root, "diff", "--name-only", "--no-renames", expected, actual).stdout.split()
+        extra = sorted(p for p in set(changed) if not _in_release_layer(p))
         if extra:
             raise Refuse("релизный коммит %s меняет не только пины над kit.ref %s: %s — код обязан быть кодовым коммитом манифеста" % (actual[:12], expected[:12], ", ".join(extra)))
+        # выходы под слой заказчика — НОВЫЕ байты над K, а манифест комплекта сам в релизном слое: без сверки маршрута
+        # манифест R мог бы разложить их кодом или поверх кода. Манифест R обязан совпадать с манифестом K во всём, кроме
+        # sha256 записей, чей источник изменён в R, и sha256 привязки customer_layer: назначения и роли — те, что у K
+        if any(p.startswith(RELEASE_LAYER_PREFIXES) or p == "profiles/sources-manifest.yaml" for p in changed):
+            _same_manifest_route(kit_root, expected, actual, set(changed))
         layer_note = " (HEAD %s — релизный слой над kit.ref: изменены только %s)" % (actual[:12], ", ".join(changed) or "ничего")
     r = _git(kit_root, "remote", "get-url", "origin")
     if r.returncode == 0:

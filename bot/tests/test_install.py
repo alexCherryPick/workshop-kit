@@ -794,6 +794,123 @@ class KitRefTests(unittest.TestCase):
         rc, out = self._run(K)
         self.assertEqual(rc, 2); self.assertIn("расходится", out)
 
+    def _commit_release(self, files, msg="release layer", amend=False):
+        for rel, body in files.items():
+            p = os.path.join(self.checkout, *rel.split("/"))
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "w") as fh:
+                fh.write(body)
+        git(self.checkout, "add", "-A")
+        git(self.checkout, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-q",
+            *(["--amend"] if amend else []), "-m", msg)
+
+    _ROUTE = (("bot/kit/validator-release.yaml", ".workshop/bot/kit/validator-release.yaml", "code"),
+              ("bot/poll.py", ".workshop/bot/poll.py", "code"),
+              ("profiles/out/AGENTS.md", "AGENTS.md", "managed"),
+              ("profiles/out/.workshop-ai/workshop-hours.md", ".workshop-ai/workshop-hours.md", "managed"))
+    _FRESH = ("bot/kit/validator-release.yaml", "profiles/out/AGENTS.md", "profiles/out/.workshop-ai/workshop-hours.md")
+
+    def _manifest(self, ver=None, route=None, layer="a" * 64, kit_version="0.1.0"):
+        # манифест комплекта: sha256 записи — от (источник, версия байт); версия по умолчанию — «k» (байты K)
+        ver = ver or {}
+        out = ["schema_version: 1", "kit_version: %s" % kit_version, "customer_layer:",
+               "  path: .workshop-ai/customer-layer.yaml", "  sha256: %s" % layer, "entries:"]
+        for src, dst, role in (route or self._ROUTE):
+            out += ["  - src: %s" % src, "    dst: %s" % dst, "    role: %s" % role,
+                    "    sha256: %s" % hashlib.sha256((src + ver.get(src, "k")).encode()).hexdigest(), "    mode: 0644"]
+        return "\n".join(out) + "\n"
+
+    def _customer_k(self):
+        # кодовый коммит K с нейтральными выходами генератора и манифестом их маршрута
+        self._commit_release({"bot/kit/validator-release.yaml": "k\n", "bot/poll.py": "code\n",
+                              "profiles/out/AGENTS.md": "neutral\n", "profiles/out/.workshop-ai/workshop-hours.md": "neutral\n",
+                              "profiles/sources-manifest.yaml": "pin k\n", "bot/kit/manifest.yaml": self._manifest()}, msg="K")
+        return git(self.checkout, "rev-parse", "HEAD").stdout.strip()
+
+    def _customer_r(self, manifest, extra=None):
+        files = {"bot/kit/validator-release.yaml": "r\n", "profiles/out/AGENTS.md": "customer\n",
+                 "profiles/out/.workshop-ai/workshop-hours.md": "customer\n", "profiles/sources-manifest.yaml": "pin r\n",
+                 "bot/kit/manifest.yaml": manifest}
+        files.update(extra or {})
+        self._commit_release(files, msg="R_c")
+
+    def test_customer_release_layer_profiles_allowed(self):
+        # релиз заказчика R_c (decide 2026-11-02): над K — пины И выходы генератора под его слой с пиннингом → ok
+        K = self._customer_k()
+        self._customer_r(self._manifest(ver=dict.fromkeys(self._FRESH, "r"), layer="b" * 64))
+        rc, out = self._run(K)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("релизный слой", out)
+        for rel in ("profiles/out/AGENTS.md", "profiles/out/.workshop-ai/workshop-hours.md", "profiles/sources-manifest.yaml"):
+            self.assertIn(rel, out)
+
+    def test_customer_release_layer_manifest_route_must_be_k(self):
+        # манифест R в релизном слое: выходы под слой заказчика раскладываются ТОЛЬКО маршрутом K (назначение, роль,
+        # набор записей, поля верха); иначе новые байты стали бы кодом — отказ с именем записи/поля
+        fresh = dict.fromkeys(self._FRESH, "r")
+        route = list(self._ROUTE)
+        as_code = [(s, d, "code" if s == "profiles/out/AGENTS.md" else r) for s, d, r in route]
+        over_code = [(s, ".workshop/bot/poll.py" if s == "profiles/out/AGENTS.md" else d, r) for s, d, r in route]
+        added = route + [("profiles/out/x.py", ".workshop/bot/x.py", "code")]
+        cases = (("as_code", self._manifest(ver=fresh, route=as_code), None, "profiles/out/AGENTS.md"),
+                 ("over_code", self._manifest(ver=fresh, route=over_code), None, "profiles/out/AGENTS.md"),
+                 ("added", self._manifest(ver=dict(fresh, **{"profiles/out/x.py": "r"}), route=added),
+                  {"profiles/out/x.py": "evil\n"}, "profiles/out/x.py"),
+                 ("unchanged_sha", self._manifest(ver=dict(fresh, **{"bot/poll.py": "r"})), None, "bot/poll.py"),
+                 ("top_level", self._manifest(ver=fresh, kit_version="0.2.0"), None, "kit_version"),
+                 ("unreadable", "pins\n", None, "не читается"))
+        for name, manifest, extra, needle in cases:
+            git(self.checkout, "reset", "-q", "--hard", self.head)
+            K = self._customer_k()
+            self._customer_r(manifest, extra)
+            rc, out = self._run(K)
+            self.assertEqual(rc, 2, (name, out))
+            self.assertIn(needle, out, name)
+        # изменён ТОЛЬКО пиннинг (sources-manifest), и манифест R раскладывает его кодом
+        git(self.checkout, "reset", "-q", "--hard", self.head)
+        K = self._customer_k()
+        self._commit_release({"profiles/sources-manifest.yaml": "pin r\n", "bot/kit/manifest.yaml": self._manifest(
+            ver={"profiles/sources-manifest.yaml": "r"},
+            route=route + [("profiles/sources-manifest.yaml", ".workshop/bot/sm.py", "code")])}, msg="R_c")
+        rc, out = self._run(K)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("profiles/sources-manifest.yaml", out)
+
+    def test_customer_release_layer_other_profiles_files_refused(self):
+        # в profiles/ релизному слою принадлежат только out/** и sources-manifest.yaml: реестры, шаблоны, генератор,
+        # двойник префикса (profiles/output/) — отказ с именем пути
+        K = self.head
+        for rel in ("profiles/profiles.yaml", "profiles/templates/standing.md.tmpl", "profiles/build_profile.py",
+                    "profiles/output/x.md", "profiles/out"):
+            git(self.checkout, "reset", "-q", "--hard", K)
+            self._commit_release({"bot/kit/manifest.yaml": "pins\n", rel: "x\n"})
+            rc, out = self._run(K)
+            self.assertEqual(rc, 2, (rel, out))
+            self.assertIn("меняет не только пины", out)
+            self.assertIn(rel, out)
+
+    def test_release_layer_rename_of_code_into_layer_refused(self):
+        # переименование кодового файла в путь релизного слоя: без --no-renames diff назвал бы только новый путь
+        K = self.head
+        self._commit_release({"bot/poll.py": "code\n"}, msg="code")
+        K = git(self.checkout, "rev-parse", "HEAD").stdout.strip()
+        os.makedirs(os.path.join(self.checkout, "profiles", "out"))
+        git(self.checkout, "mv", "bot/poll.py", "profiles/out/poll.py")
+        git(self.checkout, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-qm", "rename into layer")
+        rc, out = self._run(K)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("bot/poll.py", out)
+
+    def test_release_layer_deletion_of_code_refused(self):
+        # удаление кодового файла в R — не слой
+        self._commit_release({"bot/poll.py": "code\n"}, msg="code")
+        K = git(self.checkout, "rev-parse", "HEAD").stdout.strip()
+        git(self.checkout, "rm", "-q", "bot/poll.py")
+        self._commit_release({"bot/kit/manifest.yaml": "pins\n"}, msg="release without code")
+        rc, out = self._run(K)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("bot/poll.py", out)
+
     def test_release_layer_needs_depth_two_shallow_clone_named(self):
         # живой прогон 2026-09-08: мелкий клон (depth 1) у релизного коммита R не имеет родителя — отказ обязан НАЗВАТЬ причину
         K = self.head
