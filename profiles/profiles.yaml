@@ -1,0 +1,105 @@
+# Реестр профилей и артефактов для агента (D10, контракт — spec/10-spec-assembly/00-profile-contract.md §5).
+# Профиль = объединение предметов subjects.yaml; блок писателя входит в профиль, если ВСЕ его предметы —
+# предметы профиля (00 §5.2). Бюджет — cl100k_base; ceiling — потолок (превышение = FAIL сборки),
+# target_low…target — целевой интервал плана (ориентир, не гейт); budget_ceiling_bytes — байтовый потолок (FAIL сборки), где задан. Числа бюджетов — вердикт alex (план v2.3), прозой не выводятся.
+# Подмножество YAML — глава 00 §9.
+schema_version: 1
+# Предел длины строки каждого выхода с назначением — кодовые точки Unicode, без LF (глава 00 §9.5). Решение alex
+# 2026-09-26: клиент агента читает файлы инструментом, усекающим строки длиннее 2000 символов, — предел ниже с запасом.
+# Узел — единственный адрес значения: генератор, оракул и lint читают его здесь на каждом прогоне.
+line_max_chars: 1800
+# Узел «типы новых записей» (REQ-114, решение окна T24): шаблон standing несёт ровно одну ссылку {{fact}} — эту
+# (тело ссылки целиком, с операцией). Единственный адрес: G-FACT читает его здесь на каждом прогоне (00 §6.5).
+# [D10 T26, decide D-E, вердикт alex 2026-10-26: REQUEST — отдельный профиль «обращения»; standing — вариант V2 через
+# узел-разбиение] standing называет формы «тикетов» ссылкой на часть разбиения, «обращения» — литералом формы; узел
+# разбиения и узел целого — ниже: объединение частей == целому без повторов, ключ части — id профиля; lint и оракул
+# сверяют каждый своим читателем (00 §6.5).
+standing_fact: "03-spec-type-schemas/form-registry.yaml#profile_forms.tickets | join"
+standing_partition: "03-spec-type-schemas/form-registry.yaml#profile_forms"
+standing_partition_of: "03-spec-type-schemas/ticket-fields.yaml#forms"
+profiles:
+  - id: hours
+    title: "часы"
+    subjects: [time, comments, envelope, labels, secrets, git, validator, agent-ops]
+    # потолок 6500 -> 7000: решение alex 2026-10-15 (T24 R5: все правила вложения к строке табеля в «часах»); цель 6000 —
+    # прежняя; оптимизация бюджетов «тикетов» и «часов» — отдельной таской в конце D10
+    budget_ceiling: 7000
+    budget_target_low: 5000
+    budget_target: 6000
+    destination: ".workshop-ai/workshop-hours.md"
+    human_part: "human/hours.md"
+    deferrals: []
+  - id: tickets
+    title: "тикеты"
+    subjects: [ticket, ticket-work, envelope, comments, attachments, labels, secrets, git, validator, agent-ops]
+    budget_ceiling: 12000
+    budget_target_low: 8000
+    budget_target: 10000
+    # байтовый потолок — решение alex 2026-10-26 (D-B п. 1; коммитится по D-E): клиент Codex усекает вывод вызова по
+    # ceil(байты/4) с порогом ≈ 10 000 единиц; калибровка пиннованным codex-cli 0.156.1 (2026-10-26): ≈ байт/4 + ~52 на
+    # одиночный `cat`, 39 500 B целиком, 39 900 B усечено, порог ≈ 39 800 B; значение — запас ~4 % под порогом. Узел —
+    # единственный адрес значения (00 §5.2): генератор и оракул G-BUDGET читают его на каждом прогоне.
+    # Временное 38017 (17 B сверх решения после смысловых возвратов к 3d2d331) снято оптимизацией после смысловой
+    # проверки (alex 2026-10-26: «оптимизацией займемся после того, как по смыслу все будет ок»; таблица смысла принята).
+    budget_ceiling_bytes: 38000
+    destination: ".workshop-ai/workshop-tickets.md"
+    human_part: ""
+    deferrals: [find]
+  - id: requests
+    title: "обращения"
+    subjects: [ticket, request, envelope, comments, attachments, labels, secrets, git, validator, agent-ops]
+    # профиль и бюджеты — вердикт alex 2026-10-26 по decide D-E: потолок 8500 cl100k и 38000 байт (основание байтов — как
+    # у «тикетов»); 7000…7500 — ориентир, не гейт
+    budget_ceiling: 8500
+    budget_target_low: 7000
+    budget_target: 7500
+    budget_ceiling_bytes: 38000
+    destination: ".workshop-ai/workshop-requests.md"
+    human_part: ""
+    deferrals: [find]
+  - id: docs
+    title: "документы"
+    subjects: [doc, envelope, comments, attachments, labels, secrets, git, validator, agent-ops]
+    budget_ceiling: 8000
+    budget_target_low: 4000
+    budget_target: 6000
+    destination: ".workshop-ai/workshop-docs.md"
+    human_part: ""
+    deferrals: []
+  - id: full
+    title: "полный"
+    subjects: [time, comments, envelope, ticket, ticket-work, request, doc, journal, attachments, index, labels, secrets, git, validator, agent-ops, standalone]
+    budget_ceiling: 30000
+    budget_target: 26000
+    destination: ".workshop-ai/workshop-full.md"
+    human_part: ""
+    deferrals: [find]
+artifacts:
+  - id: standing-template
+    title: "standing, продуктовый шаблон"
+    # потолок 400 -> 420: вердикт alex 2026-10-26 по decide D-E (отдельный маршрут «обращений» в standing, вариант V2)
+    budget_ceiling: 420
+    budget_target_low: 330
+    budget_target: 360
+    destination: ""
+  - id: standing-customer
+    title: "standing у заказчика (AGENTS.md = CLAUDE.md)"
+    budget_ceiling: 500
+    budget_target: 482
+    destination: "AGENTS.md CLAUDE.md"
+  - id: recipe-product
+    title: "продуктовый рецепт / «Для человека»"
+    budget_ceiling: 900
+    budget_target_low: 700
+    budget_target: 850
+    destination: ""
+  - id: customer-layer
+    title: "слой заказчика сверх продуктового"
+    budget_ceiling: 600
+    budget_target: 500
+    destination: ""
+deferrals:
+  - id: find
+    subject: ticket
+    text: "FIND не входит в ядро и поставку: находку по слову человека заводи как ISSUE, если конфиг заказчика не объявил свой тип FIND."
+    provenance: "вердикт alex Q4 «б» 2026-09-20: FIND — репозиторное расширение, подрядчику не нужно; формулировка 2026-09-28 (окно D10, решение alex по аудиту избыточности тикетов): «находка» по слову человека — ISSUE, FIND не тип; T25 2026-10-16 (аудит astra Б-02): имя FIND не резервируется (03 §15.4, решение alex 2026-10-09) — оговорка про объявленный тип заказчика"

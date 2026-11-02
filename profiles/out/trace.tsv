@@ -1,0 +1,576 @@
+.workshop-ai/workshop-docs.md	1	template:templates/profile.md.tmpl:1	
+.workshop-ai/workshop-docs.md	2	template:templates/profile.md.tmpl:2	
+.workshop-ai/workshop-docs.md	3	template:templates/profile.md.tmpl:5	
+.workshop-ai/workshop-docs.md	4	template:templates/profile.md.tmpl:6	
+.workshop-ai/workshop-docs.md	5	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-docs.md	6	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-docs.md	7	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-docs.md	8	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-docs.md	9	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-docs.md	10	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	11	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#unknown_keys.private_prefix@1:478-480:3e16f53f4127f145
+.workshop-ai/workshop-docs.md	12	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-docs.md	13	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#fields[name=title].max_len_warning@2:52-54:48449a14a4ff7d79
+.workshop-ai/workshop-docs.md	14	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-docs.md	15	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-docs.md	16	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-docs.md	17	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	18	block:wp-kernel-namespace@01-spec-kernel/spec-kernel.md:411	
+.workshop-ai/workshop-docs.md	19	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	20	block:wp-kernel-filename-doc@01-spec-kernel/spec-kernel.md:419	01-spec-kernel/envelope-fields.yaml#filename.grammar@1:46-82:bf077fd890ecc8e7;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:211-264:29e29297a2aca482;01-spec-kernel/envelope-fields.yaml#filename.components.slug.pattern@3:528-552:8cfd8337f988ffe5;01-spec-kernel/envelope-fields.yaml#filename.components.slug.max_len@4:559-561:48449a14a4ff7d79
+.workshop-ai/workshop-docs.md	21	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	22	block:wp-kernel-path-doc@01-spec-kernel/spec-kernel.md:489	01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=document].root@1:37-41:46b42b4229cd7a39;01-spec-kernel/envelope-fields.yaml#record_layout.components[name=month].prefix_len@2:82-83:7902699be42c8a8e;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=document].example.type@3:223-226:c9ff9d7d29e892ae;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=document].example.created@4:230-250:b7d5599921de1085;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=document].example.dir@5:257-274:740676a160ca5293;01-spec-kernel/envelope-fields.yaml#record_layout.reserved_type_dirs@6:444-455:3930e671c9e40dee
+.workshop-ai/workshop-docs.md	23	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	24	block:wp-kernel-version-doc@01-spec-kernel/spec-kernel.md:554	
+.workshop-ai/workshop-docs.md	25	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	26	block:wp-kernel-doc-lifecycle@01-spec-kernel/spec-kernel.md:765	01-spec-kernel/envelope-fields.yaml#fields[name=status].enum@1:209-285:df223b59a2fdc3a4
+.workshop-ai/workshop-docs.md	27	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	28	block:wp-kernel-links@01-spec-kernel/spec-kernel.md:910	01-spec-kernel/envelope-fields.yaml#label.form@1:125-149:a1c75f4bc0d0f406;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:307-360:29e29297a2aca482
+.workshop-ai/workshop-docs.md	29	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	30	block:wp-kernel-refs-doc@01-spec-kernel/spec-kernel.md:985	
+.workshop-ai/workshop-docs.md	31	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	32	block:wp-kernel-comments-file@01-spec-kernel/spec-kernel.md:1719	
+.workshop-ai/workshop-docs.md	33	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	34	block:wp-kernel-comment-grammar@01-spec-kernel/spec-kernel.md:1869	09-tg-bot-time-line/tg-bot.yaml#comment.author_token_pattern@1:238-260:d665a912679519fe
+.workshop-ai/workshop-docs.md	35	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	36	block:wp-kernel-comment-append@01-spec-kernel/spec-kernel.md:1954	
+.workshop-ai/workshop-docs.md	37	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	38	block:wp-kernel-gitattributes@01-spec-kernel/spec-kernel.md:2078	
+.workshop-ai/workshop-docs.md	39	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	40	block:wp-kernel-lang-secrets@01-spec-kernel/spec-kernel.md:2364	
+.workshop-ai/workshop-docs.md	41	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	42	block:wp-doc@03-spec-type-schemas/spec-type-schemas.md:2681	03-spec-type-schemas/doc-fields.yaml#doc.fields[name=kind].pattern@1:399-421:0ce413b8b94e4eb9;03-spec-type-schemas/doc-fields.yaml#doc.fields[name=kind].core_vocabulary@2:451-490:8dc422049d79161f;03-spec-type-schemas/doc-fields.yaml#doc.fields[name=kind].default_when_absent@3:738-745:3a2e8954befdbd6e;03-spec-type-schemas/doc-fields.yaml#doc.fields[name=kind].default_when_absent@4:779-786:3a2e8954befdbd6e
+.workshop-ai/workshop-docs.md	43	block:wp-doc@03-spec-type-schemas/spec-type-schemas.md:2681	09-tg-bot-time-line/tg-bot.yaml#people_map.path@5:1108-1129:46f85df3d56b9400
+.workshop-ai/workshop-docs.md	44	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	45	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-docs.md	46	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-docs.md	47	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-docs.md	48	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-docs.md	49	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-docs.md	50	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	03-spec-type-schemas/relations.yaml#link_forms.external.interim_grammar@1:285-309:6c3a5a8254d2fa3e
+.workshop-ai/workshop-docs.md	51	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-docs.md	52	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	53	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	03-spec-type-schemas/attachments.yaml#layout.path_grammar@1:410-455:c4ac5ea9cc63b6cf;03-spec-type-schemas/attachments.yaml#filename.grammar@2:548-569:432b1c1cadacbea6;03-spec-type-schemas/attachments.yaml#filename.components.slug.pattern@3:603-627:8cfd8337f988ffe5;03-spec-type-schemas/attachments.yaml#filename.components.slug.max_len@4:633-635:d59eced1ded07f84;03-spec-type-schemas/attachments.yaml#filename.components.ext.pattern@5:713-728:7d10c1dd275a6884
+.workshop-ai/workshop-docs.md	54	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	
+.workshop-ai/workshop-docs.md	55	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	03-spec-type-schemas/attachments.yaml#filename.original_name.escaping_required_chars@6:273-280:f8d849487d647584;03-spec-type-schemas/attachments.yaml#filename.full_path_soft_len_limit@7:895-898:27badc983df1780b
+.workshop-ai/workshop-docs.md	56	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	57	block:wp-att-commit@03-spec-type-schemas/spec-type-schemas.md:4595	03-spec-type-schemas/attachments.yaml#soft_limit.bytes@1:678-685:36877f3dcf657735
+.workshop-ai/workshop-docs.md	58	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	59	block:wp-att-store@03-spec-type-schemas/spec-type-schemas.md:4963	
+.workshop-ai/workshop-docs.md	60	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	61	block:wp-doc-repo-types@03-spec-type-schemas/spec-type-schemas.md:5477	
+.workshop-ai/workshop-docs.md	62	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	63	block:wp-validator-forms@05-validator-core/01-invocation-interface.md:440	
+.workshop-ai/workshop-docs.md	64	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	65	block:wp-aon-when@10-spec-assembly/02-agent-operational-norm.md:42	
+.workshop-ai/workshop-docs.md	66	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	67	block:wp-aon-validate@10-spec-assembly/02-agent-operational-norm.md:63	05-validator-core/validator-interface.yaml#return_codes.items[name=warnings_only].rc@1:451-452:6b86b273ff34fce1;05-validator-core/validator-interface.yaml#return_codes.items[name=errors_found].rc@2:488-489:d4735e3a265e16ee
+.workshop-ai/workshop-docs.md	68	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	69	block:wp-aon-validate-pair@10-spec-assembly/02-agent-operational-norm.md:71	
+.workshop-ai/workshop-docs.md	70	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	71	block:wp-aon-commit@10-spec-assembly/02-agent-operational-norm.md:88	
+.workshop-ai/workshop-docs.md	72	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	73	block:wp-aon-comment-time@10-spec-assembly/02-agent-operational-norm.md:102	
+.workshop-ai/workshop-docs.md	74	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	75	block:wp-aon-read-once@10-spec-assembly/02-agent-operational-norm.md:119	
+.workshop-ai/workshop-docs.md	76	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-docs.md	77	block:wp-aon-secrets@10-spec-assembly/02-agent-operational-norm.md:130	
+.workshop-ai/workshop-full.md	1	template:templates/profile.md.tmpl:1	
+.workshop-ai/workshop-full.md	2	template:templates/profile.md.tmpl:2	
+.workshop-ai/workshop-full.md	3	template:templates/profile.md.tmpl:5	
+.workshop-ai/workshop-full.md	4	template:templates/profile.md.tmpl:6	
+.workshop-ai/workshop-full.md	5	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-full.md	6	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-full.md	7	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-full.md	8	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-full.md	9	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-full.md	10	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	11	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#unknown_keys.private_prefix@1:478-480:3e16f53f4127f145
+.workshop-ai/workshop-full.md	12	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-full.md	13	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#fields[name=title].max_len_warning@2:52-54:48449a14a4ff7d79
+.workshop-ai/workshop-full.md	14	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-full.md	15	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-full.md	16	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-full.md	17	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	18	block:wp-kernel-namespace@01-spec-kernel/spec-kernel.md:411	
+.workshop-ai/workshop-full.md	19	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	20	block:wp-kernel-filename-ticket@01-spec-kernel/spec-kernel.md:415	01-spec-kernel/envelope-fields.yaml#filename.grammar@1:40-76:bf077fd890ecc8e7;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:205-258:29e29297a2aca482;01-spec-kernel/envelope-fields.yaml#filename.components.slug.pattern@3:522-546:8cfd8337f988ffe5;01-spec-kernel/envelope-fields.yaml#filename.components.slug.max_len@4:553-555:48449a14a4ff7d79
+.workshop-ai/workshop-full.md	21	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	22	block:wp-kernel-filename-doc@01-spec-kernel/spec-kernel.md:419	01-spec-kernel/envelope-fields.yaml#filename.grammar@1:46-82:bf077fd890ecc8e7;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:211-264:29e29297a2aca482;01-spec-kernel/envelope-fields.yaml#filename.components.slug.pattern@3:528-552:8cfd8337f988ffe5;01-spec-kernel/envelope-fields.yaml#filename.components.slug.max_len@4:559-561:48449a14a4ff7d79
+.workshop-ai/workshop-full.md	23	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	24	block:wp-kernel-path-ticket@01-spec-kernel/spec-kernel.md:485	01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].root@1:31-38:45a5c62241eec841;01-spec-kernel/envelope-fields.yaml#record_layout.components[name=month].prefix_len@2:79-80:7902699be42c8a8e;01-spec-kernel/envelope-fields.yaml#record_layout.components[name=decade].prefix_len@3:121-122:19581e27de7ced00;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].example.type@4:262-267:b74a899eb1404983;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].example.created@5:271-291:b7d5599921de1085;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].example.dir@6:298-330:636c735123a66c14;01-spec-kernel/envelope-fields.yaml#record_layout.reserved_type_dirs@7:500-511:3930e671c9e40dee
+.workshop-ai/workshop-full.md	25	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	26	block:wp-kernel-path-doc@01-spec-kernel/spec-kernel.md:489	01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=document].root@1:37-41:46b42b4229cd7a39;01-spec-kernel/envelope-fields.yaml#record_layout.components[name=month].prefix_len@2:82-83:7902699be42c8a8e;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=document].example.type@3:223-226:c9ff9d7d29e892ae;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=document].example.created@4:230-250:b7d5599921de1085;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=document].example.dir@5:257-274:740676a160ca5293;01-spec-kernel/envelope-fields.yaml#record_layout.reserved_type_dirs@6:444-455:3930e671c9e40dee
+.workshop-ai/workshop-full.md	27	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	28	block:wp-kernel-version-ticket@01-spec-kernel/spec-kernel.md:550	
+.workshop-ai/workshop-full.md	29	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	30	block:wp-kernel-version-doc@01-spec-kernel/spec-kernel.md:554	
+.workshop-ai/workshop-full.md	31	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	32	block:wp-kernel-ticket-lifecycle@01-spec-kernel/spec-kernel.md:759	01-spec-kernel/envelope-fields.yaml#fields[name=status].enum@1:284-360:df223b59a2fdc3a4
+.workshop-ai/workshop-full.md	33	block:wp-kernel-ticket-lifecycle@01-spec-kernel/spec-kernel.md:759	03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values@2:425-459:44834874b590c6b8;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values@3:476-500:3063d45c2ace1782;01-spec-kernel/envelope-fields.yaml#fields[name=awaiting].enum@4:531-574:b36c66b7f4a652e1;01-spec-kernel/envelope-fields.yaml#fields[name=awaiting].absent_when_status@5:612-627:b6b2dccd47a93803
+.workshop-ai/workshop-full.md	34	block:wp-kernel-ticket-lifecycle@01-spec-kernel/spec-kernel.md:759	01-spec-kernel/envelope-fields.yaml#ticket_card.lead.max_chars_warning@6:191-194:26d228663f13a885
+.workshop-ai/workshop-full.md	35	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	36	block:wp-kernel-doc-lifecycle@01-spec-kernel/spec-kernel.md:765	01-spec-kernel/envelope-fields.yaml#fields[name=status].enum@1:209-285:df223b59a2fdc3a4
+.workshop-ai/workshop-full.md	37	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	38	block:wp-kernel-links@01-spec-kernel/spec-kernel.md:910	01-spec-kernel/envelope-fields.yaml#label.form@1:125-149:a1c75f4bc0d0f406;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:307-360:29e29297a2aca482
+.workshop-ai/workshop-full.md	39	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	40	block:wp-kernel-refs-ticket@01-spec-kernel/spec-kernel.md:981	
+.workshop-ai/workshop-full.md	41	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	42	block:wp-kernel-refs-doc@01-spec-kernel/spec-kernel.md:985	
+.workshop-ai/workshop-full.md	43	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	44	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	04-spec-time-model/time-model.yaml#layout.directory@1:78-83:e1e4783200315b50;01-spec-kernel/envelope-fields.yaml#filename.per_type.TIMESHEET.grammar@2:83-125:f33bdce7a7703695;01-spec-kernel/envelope-fields.yaml#filename.per_type.TIMESHEET.components.person.pattern@3:234-258:8cfd8337f988ffe5;01-spec-kernel/envelope-fields.yaml#filename.per_type.TIMESHEET.components.person.max_len@4:265-267:d59eced1ded07f84;04-spec-time-model/time-model.yaml#layout.directory@5:271-276:e1e4783200315b50;04-spec-time-model/time-model.yaml#layout.attachments_path@6:409-441:124f4b157cfd7b2d
+.workshop-ai/workshop-full.md	45	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	01-spec-kernel/envelope-fields.yaml#fields[name=version].initial@7:135-136:6b86b273ff34fce1;01-spec-kernel/line-forms.yaml#containers.common.required_fields@8:152-204:fdd7dc07bce0c30d;01-spec-kernel/line-forms.yaml#containers.timesheet.extra_fields@9:206-248:59d4f75863cc74b8;01-spec-kernel/line-forms.yaml#containers.timesheet.type_token@10:257-266:975fcde01537cd74;01-spec-kernel/line-forms.yaml#containers.timesheet.line_form@11:281-294:60785346bf32811e;01-spec-kernel/envelope-fields.yaml#fields[name=version].initial@12:307-308:6b86b273ff34fce1
+.workshop-ai/workshop-full.md	46	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	
+.workshop-ai/workshop-full.md	47	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	
+.workshop-ai/workshop-full.md	48	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	09-tg-bot-time-line/tg-bot.yaml#people_map.path@13:74-95:46f85df3d56b9400
+.workshop-ai/workshop-full.md	49	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	01-spec-kernel/line-forms.yaml#containers.common.forbidden_fields@14:18-47:0769e1f0a0c8233d;01-spec-kernel/envelope-fields.yaml#aggregate_on_container.forbidden_key_registry@15:89-149:2d4c41fd57e87fda
+.workshop-ai/workshop-full.md	50	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	51	block:wp-kernel-journal@01-spec-kernel/spec-kernel.md:1379	01-spec-kernel/line-forms.yaml#containers.common.forbidden_fields@1:260-289:0769e1f0a0c8233d;01-spec-kernel/line-forms.yaml#containers.journal.extra_fields.scope.values@2:347-371:7b1cfcd1b5ef9ab9
+.workshop-ai/workshop-full.md	52	block:wp-kernel-journal@01-spec-kernel/spec-kernel.md:1379	01-spec-kernel/line-forms.yaml#forms.journal_v1.fields[name=type].pattern@3:270-289:268f76b9e19c56fa
+.workshop-ai/workshop-full.md	53	block:wp-kernel-journal@01-spec-kernel/spec-kernel.md:1379	01-spec-kernel/line-forms.yaml#delivery_payload.subjects.COMMIT.pattern@4:1041-1076:6011c82bc2675785;01-spec-kernel/line-forms.yaml#delivery_payload.subjects.PR.pattern@5:1088-1115:1b13ec07bc7be032;01-spec-kernel/line-forms.yaml#delivery_payload.subjects.DEPLOY.pattern@6:1150-1168:2dacb5612c7692fb;01-spec-kernel/line-forms.yaml#delivery_payload.subjects.DEPLOY.recommended_vocabulary@7:1198-1225:7a93947c2df7d59e
+.workshop-ai/workshop-full.md	54	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	55	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	01-spec-kernel/line-forms.yaml#line_form_model.separators.between_prefix_fields.canonical_spaces@1:177-178:6b86b273ff34fce1;01-spec-kernel/line-forms.yaml#line_form_model.separators.before_free_text.canonical_spaces@2:230-231:d4735e3a265e16ee
+.workshop-ai/workshop-full.md	56	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	
+.workshop-ai/workshop-full.md	57	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	01-spec-kernel/line-forms.yaml#forms.daily_time_v1.fields[name=hours].pattern@3:15-48:9bbdc9a1b12707d9;01-spec-kernel/line-forms.yaml#forms.daily_time_v1.fields[name=hours].range@4:50-97:3df67bbb45853857
+.workshop-ai/workshop-full.md	58	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	01-spec-kernel/line-forms.yaml#forms.daily_time_v1.interval_hours_tolerance_hours@5:183-188:07e17407c7918077
+.workshop-ai/workshop-full.md	59	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	
+.workshop-ai/workshop-full.md	60	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	01-spec-kernel/line-forms.yaml#time_line_anchor.pattern@6:17-37:11ce174c63f5ff90
+.workshop-ai/workshop-full.md	61	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	
+.workshop-ai/workshop-full.md	62	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	63	block:wp-kernel-backfill@01-spec-kernel/spec-kernel.md:1552	
+.workshop-ai/workshop-full.md	64	block:wp-kernel-backfill@01-spec-kernel/spec-kernel.md:1552	
+.workshop-ai/workshop-full.md	65	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	66	block:wp-kernel-midnight@01-spec-kernel/spec-kernel.md:1584	
+.workshop-ai/workshop-full.md	67	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	68	block:wp-kernel-line-validator@01-spec-kernel/spec-kernel.md:1640	
+.workshop-ai/workshop-full.md	69	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	70	block:wp-kernel-comments-file@01-spec-kernel/spec-kernel.md:1719	
+.workshop-ai/workshop-full.md	71	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	72	block:wp-kernel-comment-grammar@01-spec-kernel/spec-kernel.md:1869	09-tg-bot-time-line/tg-bot.yaml#comment.author_token_pattern@1:238-260:d665a912679519fe
+.workshop-ai/workshop-full.md	73	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	74	block:wp-kernel-comment-append@01-spec-kernel/spec-kernel.md:1954	
+.workshop-ai/workshop-full.md	75	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	76	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	
+.workshop-ai/workshop-full.md	77	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	
+.workshop-ai/workshop-full.md	78	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	03-spec-type-schemas/attachments.yaml#layout.path_grammar@1:153-198:c4ac5ea9cc63b6cf;03-spec-type-schemas/attachments.yaml#filename.grammar@2:256-277:432b1c1cadacbea6
+.workshop-ai/workshop-full.md	79	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	03-spec-type-schemas/attachments.yaml#soft_limit.bytes@3:140-147:36877f3dcf657735;03-spec-type-schemas/attachments.yaml#filename.original_name.escaping_required_chars@4:987-994:f8d849487d647584
+.workshop-ai/workshop-full.md	80	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	
+.workshop-ai/workshop-full.md	81	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	82	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-full.md	83	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-full.md	84	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-full.md	85	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-full.md	86	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-full.md	87	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-full.md	88	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-full.md	89	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	90	block:wp-kernel-gitattributes@01-spec-kernel/spec-kernel.md:2078	
+.workshop-ai/workshop-full.md	91	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	92	block:wp-kernel-lang-secrets@01-spec-kernel/spec-kernel.md:2364	
+.workshop-ai/workshop-full.md	93	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	94	block:wp-time-git-discipline@04-spec-time-model/spec-time-model.md:1247	
+.workshop-ai/workshop-full.md	95	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	96	block:wp-ticket-forms@03-spec-type-schemas/spec-type-schemas.md:1066	03-spec-type-schemas/ticket-fields.yaml#forms@1:88-124:dbdc3b7ac5554b5d
+.workshop-ai/workshop-full.md	97	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	98	block:wp-ticket-sections@03-spec-type-schemas/spec-type-schemas.md:1117	
+.workshop-ai/workshop-full.md	99	block:wp-ticket-sections@03-spec-type-schemas/spec-type-schemas.md:1117	03-spec-type-schemas/section-ids.yaml#kernel_section_ids[id=scope_bounds].meaning@1:47-97:8d7ad981c78bc730;03-spec-type-schemas/section-ids.yaml#kernel_section_ids[id=out_of_scope].meaning@2:167-207:7a6cbd2272dc0a52;03-spec-type-schemas/section-ids.yaml#kernel_section_ids[id=related].meaning@3:223-276:21d8be3c8ca57826;03-spec-type-schemas/section-ids.yaml#introduced_by_ticket_forms[id=why_it_matters].meaning@4:482-551:249aa37e3f455a8b;03-spec-type-schemas/section-ids.yaml#introduced_by_ticket_forms[id=prevention].meaning@5:849-912:11a63349c1fac732;03-spec-type-schemas/section-ids.yaml#introduced_by_repo_type_extension[id=what_we_ask].meaning@6:1054-1095:b9512511cf7ceb30;03-spec-type-schemas/section-ids.yaml#introduced_by_repo_type_extension[id=not_covered].meaning@7:1115-1156:acccd69b3a58a35f
+.workshop-ai/workshop-full.md	100	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	101	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-full.md	102	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-full.md	103	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-full.md	104	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-full.md	105	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-full.md	106	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-full.md	107	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-full.md	108	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	03-spec-type-schemas/relations.yaml#link_forms.external.interim_grammar@1:285-309:6c3a5a8254d2fa3e
+.workshop-ai/workshop-full.md	109	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-full.md	110	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	111	block:wp-task@03-spec-type-schemas/spec-type-schemas.md:1251	03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=proposal].statuses@1:174-186:9e1edc2b7b258b15;03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=proposal].sections_should@2:358-392:d72826f5a5b5f23b;03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=accepted].statuses@3:394-439:2e8e5f1384854dc6;03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=accepted].meaning@4:444-650:aa03f8068c7e2448;03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=closed].statuses@5:678-693:b6b2dccd47a93803
+.workshop-ai/workshop-full.md	112	block:wp-task@03-spec-type-schemas/spec-type-schemas.md:1251	03-spec-type-schemas/ticket-fields.yaml#types.TASK.new_fields[name=kind].enum@6:60-97:c2fc6fce1e192887;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.dev@7:125-244:d38d1c21d4bb6b0d;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.design@8:250-414:e20f5e3309499031;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.qa@9:420-510:fd533221429e4592;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.research@10:516-644:c8fe4484af3fd969;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.ops@11:650-774:1a61a2b01d33f9ed;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.other@12:780-856:f8375cc021e1423d;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values@13:1023-1057:44834874b590c6b8;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values.team@14:1085-1130:10e8ef5814be632e;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values.designer@15:1136-1164:593b41c5cd9e7801;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values.product@16:1170-1270:d80bfe91f0da1e03;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values.requester@17:1276-1389:1cb1b28401ee6065
+.workshop-ai/workshop-full.md	113	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	114	block:wp-task-design@03-spec-type-schemas/spec-type-schemas.md:1336	03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values@1:127-156:10892f0cae8875c6;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values.mockup@2:184-247:c3deaed3b5c81ba1;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values.gap@3:253-384:9de67c9488b40043;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values.review@4:390-478:32aa5c3950b6ff55;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values.question@5:484-557:7f352aef9b81a64a;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.body.sections_should_by_direction.mockup@6:588-613:932a6ce0bfc4a366;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.body.sections_should_by_direction.gap@7:625-650:6aca96c46314084b;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.body.sections_should_by_direction.review@8:677-709:1342182da1e139b7
+.workshop-ai/workshop-full.md	115	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	116	block:wp-task-hotfix@03-spec-type-schemas/spec-type-schemas.md:1426	03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.block.fields[name=origin].enum@1:246-293:2e27006ab6ed275e;03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.block.fields[name=package].pattern@2:830-854:8cfd8337f988ffe5;03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.block.fields[name=ship_by].required_when_status@3:936-968:997d8b5fd3df038e
+.workshop-ai/workshop-full.md	117	block:wp-task-hotfix@03-spec-type-schemas/spec-type-schemas.md:1426	03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.mode_tightenings[field=assignee].to.required_when_status@4:38-70:997d8b5fd3df038e;03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.body.sections_should@5:192-229:68ee30524cf99792
+.workshop-ai/workshop-full.md	118	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	119	block:wp-issue@03-spec-type-schemas/spec-type-schemas.md:1633	03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.new_fields[name=evidence_kinds].enum@1:98-160:39c9d041fd9e9b10;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=observed].strength@2:745-757:9dda0fbce8c97cdd;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=why_it_matters].strength@3:778-792:baade52fba867c22;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=proposal].strength@4:807-817:ad9fd21f0c78038c;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=unverified].strength@5:834-848:baade52fba867c22;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=tool_limitation].strength@6:870-1000:d5e355fa2f15f37f;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=related].strength@7:1014-1024:ad9fd21f0c78038c;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=provenance].strength@8:1041-1055:baade52fba867c22
+.workshop-ai/workshop-full.md	120	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	121	block:wp-incident@03-spec-type-schemas/spec-type-schemas.md:1782	03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.new_fields[name=ended_at].required_status_set@1:156-171:b6b2dccd47a93803;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.new_fields[name=environment].enum@2:191-207:499de801835501fe;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=summary].strength@3:840-852:9dda0fbce8c97cdd;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=root_cause].strength@4:869-879:ad9fd21f0c78038c;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=scale].strength@5:906-920:baade52fba867c22;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=not_recovered].strength@6:940-952:9dda0fbce8c97cdd;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=prevention].strength@7:969-983:baade52fba867c22;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=side_findings].strength@8:1003-1088:406a268b46a51c79;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=provenance].strength@9:1114-1124:ad9fd21f0c78038c
+.workshop-ai/workshop-full.md	122	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	123	block:wp-epic@03-spec-type-schemas/spec-type-schemas.md:2036	03-spec-type-schemas/ticket-fields.yaml#types.EPIC.body_skeleton.sections@1:386-442:50bf44500eba127b
+.workshop-ai/workshop-full.md	124	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	125	block:wp-request-pii@03-spec-type-schemas/spec-type-schemas.md:2368	03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.personal_data.scrub_before_first_commit@1:355-512:622a547f72717f15
+.workshop-ai/workshop-full.md	126	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	127	block:wp-request-origin-pii@03-spec-type-schemas/spec-type-schemas.md:2372	03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.personal_data.scrub_before_first_commit@1:408-565:622a547f72717f15
+.workshop-ai/workshop-full.md	128	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	129	block:wp-request@03-spec-type-schemas/spec-type-schemas.md:2394	03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.new_fields[name=channel].enum@1:202-229:fd8316700995ca1c;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=channel].values.telegram@2:257-333:994c7e9a61b7f3c0;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=channel].values.email@3:339-429:7b1da2d0e67ea83b;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=channel].values.app@4:435-508:a4082ec36a376d7b;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=channel].values.other@5:514-616:b61d9b32db13dfce;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values@6:1101-1125:3063d45c2ace1782;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values.support@7:1153-1257:2ace2ddc1dac32a6;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values.requester@8:1263-1352:4e7d54b80847afb4;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values.team@9:1358-1517:3fb31ae0567fa062;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=decided_by].question@10:1742-1894:153ccfa5beba6fd8;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.new_fields[name=outcome].enum@11:2033-2069:80b97fb38edf9476;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=outcome].values.answered@12:2097-2171:528621efb40cf9cd;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=outcome].values.fixed@13:2177-2234:9d964c3c5d033df6;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=outcome].values.duplicate@14:2240-2423:57b61e322871f08f;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=outcome].values.declined@15:2429-2475:fa8af7c73775cf25
+.workshop-ai/workshop-full.md	130	block:wp-request@03-spec-type-schemas/spec-type-schemas.md:2394	03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.body_skeleton.sections_should@16:13-36:93257d92fe14f421;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.response_rule.before_sent@17:257-298:5130b9b2908bffcc
+.workshop-ai/workshop-full.md	131	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	132	block:wp-doc@03-spec-type-schemas/spec-type-schemas.md:2681	03-spec-type-schemas/doc-fields.yaml#doc.fields[name=kind].pattern@1:399-421:0ce413b8b94e4eb9;03-spec-type-schemas/doc-fields.yaml#doc.fields[name=kind].core_vocabulary@2:451-490:8dc422049d79161f;03-spec-type-schemas/doc-fields.yaml#doc.fields[name=kind].default_when_absent@3:738-745:3a2e8954befdbd6e;03-spec-type-schemas/doc-fields.yaml#doc.fields[name=kind].default_when_absent@4:779-786:3a2e8954befdbd6e
+.workshop-ai/workshop-full.md	133	block:wp-doc@03-spec-type-schemas/spec-type-schemas.md:2681	09-tg-bot-time-line/tg-bot.yaml#people_map.path@5:1108-1129:46f85df3d56b9400
+.workshop-ai/workshop-full.md	134	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	135	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-full.md	136	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-full.md	137	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-full.md	138	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-full.md	139	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-full.md	140	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	03-spec-type-schemas/relations.yaml#link_forms.external.interim_grammar@1:285-309:6c3a5a8254d2fa3e
+.workshop-ai/workshop-full.md	141	block:wp-doc-relations@03-spec-type-schemas/spec-type-schemas.md:2832	
+.workshop-ai/workshop-full.md	142	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	143	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	03-spec-type-schemas/attachments.yaml#layout.path_grammar@1:410-455:c4ac5ea9cc63b6cf;03-spec-type-schemas/attachments.yaml#filename.grammar@2:548-569:432b1c1cadacbea6;03-spec-type-schemas/attachments.yaml#filename.components.slug.pattern@3:603-627:8cfd8337f988ffe5;03-spec-type-schemas/attachments.yaml#filename.components.slug.max_len@4:633-635:d59eced1ded07f84;03-spec-type-schemas/attachments.yaml#filename.components.ext.pattern@5:713-728:7d10c1dd275a6884
+.workshop-ai/workshop-full.md	144	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	
+.workshop-ai/workshop-full.md	145	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	03-spec-type-schemas/attachments.yaml#filename.original_name.escaping_required_chars@6:273-280:f8d849487d647584;03-spec-type-schemas/attachments.yaml#filename.full_path_soft_len_limit@7:895-898:27badc983df1780b
+.workshop-ai/workshop-full.md	146	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	147	block:wp-att-lines@03-spec-type-schemas/spec-type-schemas.md:4306	
+.workshop-ai/workshop-full.md	148	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	149	block:wp-att-commit@03-spec-type-schemas/spec-type-schemas.md:4595	03-spec-type-schemas/attachments.yaml#soft_limit.bytes@1:678-685:36877f3dcf657735
+.workshop-ai/workshop-full.md	150	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	151	block:wp-att-store@03-spec-type-schemas/spec-type-schemas.md:4963	
+.workshop-ai/workshop-full.md	152	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	153	block:wp-ticket-repo-types@03-spec-type-schemas/spec-type-schemas.md:5473	
+.workshop-ai/workshop-full.md	154	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	155	deferral:find	
+.workshop-ai/workshop-full.md	156	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	157	block:wp-doc-repo-types@03-spec-type-schemas/spec-type-schemas.md:5477	
+.workshop-ai/workshop-full.md	158	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	159	block:wp-index-read@08-generated-index/01-index-and-ledger.md:342	08-generated-index/index-form.yaml#paths.ledger@1:78-104:1486fd8aecaf7f0a;08-generated-index/index-form.yaml#paths.index_root@2:123-139:f56ad18321429333;08-generated-index/index-form.yaml#paths.index_files.records@3:469-523:7acec312126d035f
+.workshop-ai/workshop-full.md	160	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	161	block:wp-validator-forms@05-validator-core/01-invocation-interface.md:440	
+.workshop-ai/workshop-full.md	162	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	163	block:wp-aon-machine-writer@10-spec-assembly/02-agent-operational-norm.md:19	
+.workshop-ai/workshop-full.md	164	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	165	block:wp-aon-when@10-spec-assembly/02-agent-operational-norm.md:42	
+.workshop-ai/workshop-full.md	166	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	167	block:wp-aon-validate@10-spec-assembly/02-agent-operational-norm.md:63	05-validator-core/validator-interface.yaml#return_codes.items[name=warnings_only].rc@1:451-452:6b86b273ff34fce1;05-validator-core/validator-interface.yaml#return_codes.items[name=errors_found].rc@2:488-489:d4735e3a265e16ee
+.workshop-ai/workshop-full.md	168	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	169	block:wp-aon-validate-standalone@10-spec-assembly/02-agent-operational-norm.md:67	09-tg-bot-time-line/tg-bot.yaml#install.validator_dest@1:18-50:ddb1502423fee906
+.workshop-ai/workshop-full.md	170	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	171	block:wp-aon-validate-pair@10-spec-assembly/02-agent-operational-norm.md:71	
+.workshop-ai/workshop-full.md	172	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	173	block:wp-aon-commit@10-spec-assembly/02-agent-operational-norm.md:88	
+.workshop-ai/workshop-full.md	174	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	175	block:wp-aon-commit-standalone@10-spec-assembly/02-agent-operational-norm.md:92	
+.workshop-ai/workshop-full.md	176	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	177	block:wp-aon-comment-time@10-spec-assembly/02-agent-operational-norm.md:102	
+.workshop-ai/workshop-full.md	178	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	179	block:wp-aon-read-once@10-spec-assembly/02-agent-operational-norm.md:119	
+.workshop-ai/workshop-full.md	180	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-full.md	181	block:wp-aon-secrets@10-spec-assembly/02-agent-operational-norm.md:130	
+.workshop-ai/workshop-hours.md	1	template:templates/profile.md.tmpl:1	
+.workshop-ai/workshop-hours.md	2	template:templates/profile.md.tmpl:2	
+.workshop-ai/workshop-hours.md	3	human:human/hours.md:1	
+.workshop-ai/workshop-hours.md	4	human:human/hours.md:2	
+.workshop-ai/workshop-hours.md	5	human:human/hours.md:3	customer:project@1:124-131:d029f87e3d80f8fd;customer:repo@2:227-254:9d746af917af8e3d;customer:bot@3:297-317:8b81e55dae7e507b;customer:messenger@4:321-329:acdd1e734125f341
+.workshop-ai/workshop-hours.md	6	human:human/hours.md:4	
+.workshop-ai/workshop-hours.md	7	human:human/hours.md:5	
+.workshop-ai/workshop-hours.md	8	human:human/hours.md:6	customer:clone_cmd@5:47-110:df50df1ae3312a66
+.workshop-ai/workshop-hours.md	9	human:human/hours.md:7	customer:ai_tools@6:144-168:27d5c472118967f1
+.workshop-ai/workshop-hours.md	10	human:human/hours.md:8	customer:forge@7:112-124:68580f53e65be310
+.workshop-ai/workshop-hours.md	11	human:human/hours.md:9	
+.workshop-ai/workshop-hours.md	12	human:human/hours.md:10	
+.workshop-ai/workshop-hours.md	13	human:human/hours.md:11	
+.workshop-ai/workshop-hours.md	14	human:human/hours.md:12	
+.workshop-ai/workshop-hours.md	15	human:human/hours.md:13	
+.workshop-ai/workshop-hours.md	16	human:human/hours.md:14	
+.workshop-ai/workshop-hours.md	17	human:human/hours.md:15	
+.workshop-ai/workshop-hours.md	18	human:human/hours.md:16	
+.workshop-ai/workshop-hours.md	19	human:human/hours.md:17	
+.workshop-ai/workshop-hours.md	20	human:human/hours.md:18	customer:commits_url@8:116-178:ca4df9cf3c809154
+.workshop-ai/workshop-hours.md	21	human:human/hours.md:19	
+.workshop-ai/workshop-hours.md	22	human:human/hours.md:20	
+.workshop-ai/workshop-hours.md	23	human:human/hours.md:21	
+.workshop-ai/workshop-hours.md	24	human:human/hours.md:22	
+.workshop-ai/workshop-hours.md	25	human:human/hours.md:23	
+.workshop-ai/workshop-hours.md	26	human:human/hours.md:24	customer:contact@9:205-294:3d4a05dd14e9d113
+.workshop-ai/workshop-hours.md	27	template:templates/profile.md.tmpl:4	
+.workshop-ai/workshop-hours.md	28	template:templates/profile.md.tmpl:5	
+.workshop-ai/workshop-hours.md	29	template:templates/profile.md.tmpl:6	
+.workshop-ai/workshop-hours.md	30	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-hours.md	31	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-hours.md	32	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-hours.md	33	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-hours.md	34	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-hours.md	35	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	36	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#unknown_keys.private_prefix@1:478-480:3e16f53f4127f145
+.workshop-ai/workshop-hours.md	37	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-hours.md	38	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#fields[name=title].max_len_warning@2:52-54:48449a14a4ff7d79
+.workshop-ai/workshop-hours.md	39	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-hours.md	40	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-hours.md	41	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-hours.md	42	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	43	block:wp-kernel-namespace@01-spec-kernel/spec-kernel.md:411	
+.workshop-ai/workshop-hours.md	44	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	45	block:wp-kernel-links@01-spec-kernel/spec-kernel.md:910	01-spec-kernel/envelope-fields.yaml#label.form@1:125-149:a1c75f4bc0d0f406;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:307-360:29e29297a2aca482
+.workshop-ai/workshop-hours.md	46	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	47	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	04-spec-time-model/time-model.yaml#layout.directory@1:78-83:e1e4783200315b50;01-spec-kernel/envelope-fields.yaml#filename.per_type.TIMESHEET.grammar@2:83-125:f33bdce7a7703695;01-spec-kernel/envelope-fields.yaml#filename.per_type.TIMESHEET.components.person.pattern@3:234-258:8cfd8337f988ffe5;01-spec-kernel/envelope-fields.yaml#filename.per_type.TIMESHEET.components.person.max_len@4:265-267:d59eced1ded07f84;04-spec-time-model/time-model.yaml#layout.directory@5:271-276:e1e4783200315b50;04-spec-time-model/time-model.yaml#layout.attachments_path@6:409-441:124f4b157cfd7b2d
+.workshop-ai/workshop-hours.md	48	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	01-spec-kernel/envelope-fields.yaml#fields[name=version].initial@7:135-136:6b86b273ff34fce1;01-spec-kernel/line-forms.yaml#containers.common.required_fields@8:152-204:fdd7dc07bce0c30d;01-spec-kernel/line-forms.yaml#containers.timesheet.extra_fields@9:206-248:59d4f75863cc74b8;01-spec-kernel/line-forms.yaml#containers.timesheet.type_token@10:257-266:975fcde01537cd74;01-spec-kernel/line-forms.yaml#containers.timesheet.line_form@11:281-294:60785346bf32811e;01-spec-kernel/envelope-fields.yaml#fields[name=version].initial@12:307-308:6b86b273ff34fce1
+.workshop-ai/workshop-hours.md	49	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	
+.workshop-ai/workshop-hours.md	50	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	
+.workshop-ai/workshop-hours.md	51	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	09-tg-bot-time-line/tg-bot.yaml#people_map.path@13:74-95:46f85df3d56b9400
+.workshop-ai/workshop-hours.md	52	block:wp-kernel-timesheet-file@01-spec-kernel/spec-kernel.md:1336	01-spec-kernel/line-forms.yaml#containers.common.forbidden_fields@14:18-47:0769e1f0a0c8233d;01-spec-kernel/envelope-fields.yaml#aggregate_on_container.forbidden_key_registry@15:89-149:2d4c41fd57e87fda
+.workshop-ai/workshop-hours.md	53	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	54	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	01-spec-kernel/line-forms.yaml#line_form_model.separators.between_prefix_fields.canonical_spaces@1:177-178:6b86b273ff34fce1;01-spec-kernel/line-forms.yaml#line_form_model.separators.before_free_text.canonical_spaces@2:230-231:d4735e3a265e16ee
+.workshop-ai/workshop-hours.md	55	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	
+.workshop-ai/workshop-hours.md	56	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	01-spec-kernel/line-forms.yaml#forms.daily_time_v1.fields[name=hours].pattern@3:15-48:9bbdc9a1b12707d9;01-spec-kernel/line-forms.yaml#forms.daily_time_v1.fields[name=hours].range@4:50-97:3df67bbb45853857
+.workshop-ai/workshop-hours.md	57	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	01-spec-kernel/line-forms.yaml#forms.daily_time_v1.interval_hours_tolerance_hours@5:183-188:07e17407c7918077
+.workshop-ai/workshop-hours.md	58	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	
+.workshop-ai/workshop-hours.md	59	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	01-spec-kernel/line-forms.yaml#time_line_anchor.pattern@6:17-37:11ce174c63f5ff90
+.workshop-ai/workshop-hours.md	60	block:wp-kernel-daily-line@01-spec-kernel/spec-kernel.md:1531	
+.workshop-ai/workshop-hours.md	61	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	62	block:wp-kernel-backfill@01-spec-kernel/spec-kernel.md:1552	
+.workshop-ai/workshop-hours.md	63	block:wp-kernel-backfill@01-spec-kernel/spec-kernel.md:1552	
+.workshop-ai/workshop-hours.md	64	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	65	block:wp-kernel-midnight@01-spec-kernel/spec-kernel.md:1584	
+.workshop-ai/workshop-hours.md	66	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	67	block:wp-kernel-line-validator@01-spec-kernel/spec-kernel.md:1640	
+.workshop-ai/workshop-hours.md	68	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	69	block:wp-kernel-comments-file@01-spec-kernel/spec-kernel.md:1719	
+.workshop-ai/workshop-hours.md	70	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	71	block:wp-kernel-comment-grammar@01-spec-kernel/spec-kernel.md:1869	09-tg-bot-time-line/tg-bot.yaml#comment.author_token_pattern@1:238-260:d665a912679519fe
+.workshop-ai/workshop-hours.md	72	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	73	block:wp-kernel-comment-append@01-spec-kernel/spec-kernel.md:1954	
+.workshop-ai/workshop-hours.md	74	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	75	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	
+.workshop-ai/workshop-hours.md	76	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	
+.workshop-ai/workshop-hours.md	77	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	03-spec-type-schemas/attachments.yaml#layout.path_grammar@1:153-198:c4ac5ea9cc63b6cf;03-spec-type-schemas/attachments.yaml#filename.grammar@2:256-277:432b1c1cadacbea6
+.workshop-ai/workshop-hours.md	78	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	03-spec-type-schemas/attachments.yaml#soft_limit.bytes@3:140-147:36877f3dcf657735;03-spec-type-schemas/attachments.yaml#filename.original_name.escaping_required_chars@4:987-994:f8d849487d647584
+.workshop-ai/workshop-hours.md	79	block:wp-kernel-comment-timesheet@01-spec-kernel/spec-kernel.md:1984	
+.workshop-ai/workshop-hours.md	80	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	81	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-hours.md	82	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-hours.md	83	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-hours.md	84	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-hours.md	85	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-hours.md	86	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-hours.md	87	block:wp-kernel-corrections@01-spec-kernel/spec-kernel.md:2028	
+.workshop-ai/workshop-hours.md	88	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	89	block:wp-kernel-gitattributes@01-spec-kernel/spec-kernel.md:2078	
+.workshop-ai/workshop-hours.md	90	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	91	block:wp-kernel-lang-secrets@01-spec-kernel/spec-kernel.md:2364	
+.workshop-ai/workshop-hours.md	92	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	93	block:wp-time-git-discipline@04-spec-time-model/spec-time-model.md:1247	
+.workshop-ai/workshop-hours.md	94	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	95	block:wp-validator-forms@05-validator-core/01-invocation-interface.md:440	
+.workshop-ai/workshop-hours.md	96	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	97	block:wp-aon-machine-writer@10-spec-assembly/02-agent-operational-norm.md:19	
+.workshop-ai/workshop-hours.md	98	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	99	block:wp-aon-when@10-spec-assembly/02-agent-operational-norm.md:42	
+.workshop-ai/workshop-hours.md	100	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	101	block:wp-aon-validate@10-spec-assembly/02-agent-operational-norm.md:63	05-validator-core/validator-interface.yaml#return_codes.items[name=warnings_only].rc@1:451-452:6b86b273ff34fce1;05-validator-core/validator-interface.yaml#return_codes.items[name=errors_found].rc@2:488-489:d4735e3a265e16ee
+.workshop-ai/workshop-hours.md	102	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	103	block:wp-aon-validate-pair@10-spec-assembly/02-agent-operational-norm.md:71	
+.workshop-ai/workshop-hours.md	104	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	105	block:wp-aon-commit@10-spec-assembly/02-agent-operational-norm.md:88	
+.workshop-ai/workshop-hours.md	106	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	107	block:wp-aon-comment-time@10-spec-assembly/02-agent-operational-norm.md:102	
+.workshop-ai/workshop-hours.md	108	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	109	block:wp-aon-read-once@10-spec-assembly/02-agent-operational-norm.md:119	
+.workshop-ai/workshop-hours.md	110	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-hours.md	111	block:wp-aon-secrets@10-spec-assembly/02-agent-operational-norm.md:130	
+.workshop-ai/workshop-requests.md	1	template:templates/profile.md.tmpl:1	
+.workshop-ai/workshop-requests.md	2	template:templates/profile.md.tmpl:2	
+.workshop-ai/workshop-requests.md	3	template:templates/profile.md.tmpl:5	
+.workshop-ai/workshop-requests.md	4	template:templates/profile.md.tmpl:6	
+.workshop-ai/workshop-requests.md	5	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-requests.md	6	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-requests.md	7	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-requests.md	8	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-requests.md	9	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-requests.md	10	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	11	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#unknown_keys.private_prefix@1:478-480:3e16f53f4127f145
+.workshop-ai/workshop-requests.md	12	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-requests.md	13	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#fields[name=title].max_len_warning@2:52-54:48449a14a4ff7d79
+.workshop-ai/workshop-requests.md	14	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-requests.md	15	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-requests.md	16	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-requests.md	17	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	18	block:wp-kernel-namespace@01-spec-kernel/spec-kernel.md:411	
+.workshop-ai/workshop-requests.md	19	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	20	block:wp-kernel-filename-ticket@01-spec-kernel/spec-kernel.md:415	01-spec-kernel/envelope-fields.yaml#filename.grammar@1:40-76:bf077fd890ecc8e7;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:205-258:29e29297a2aca482;01-spec-kernel/envelope-fields.yaml#filename.components.slug.pattern@3:522-546:8cfd8337f988ffe5;01-spec-kernel/envelope-fields.yaml#filename.components.slug.max_len@4:553-555:48449a14a4ff7d79
+.workshop-ai/workshop-requests.md	21	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	22	block:wp-kernel-path-ticket@01-spec-kernel/spec-kernel.md:485	01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].root@1:31-38:45a5c62241eec841;01-spec-kernel/envelope-fields.yaml#record_layout.components[name=month].prefix_len@2:79-80:7902699be42c8a8e;01-spec-kernel/envelope-fields.yaml#record_layout.components[name=decade].prefix_len@3:121-122:19581e27de7ced00;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].example.type@4:262-267:b74a899eb1404983;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].example.created@5:271-291:b7d5599921de1085;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].example.dir@6:298-330:636c735123a66c14;01-spec-kernel/envelope-fields.yaml#record_layout.reserved_type_dirs@7:500-511:3930e671c9e40dee
+.workshop-ai/workshop-requests.md	23	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	24	block:wp-kernel-version-ticket@01-spec-kernel/spec-kernel.md:550	
+.workshop-ai/workshop-requests.md	25	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	26	block:wp-kernel-ticket-lifecycle@01-spec-kernel/spec-kernel.md:759	01-spec-kernel/envelope-fields.yaml#fields[name=status].enum@1:284-360:df223b59a2fdc3a4
+.workshop-ai/workshop-requests.md	27	block:wp-kernel-ticket-lifecycle@01-spec-kernel/spec-kernel.md:759	03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values@2:425-459:44834874b590c6b8;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values@3:476-500:3063d45c2ace1782;01-spec-kernel/envelope-fields.yaml#fields[name=awaiting].enum@4:531-574:b36c66b7f4a652e1;01-spec-kernel/envelope-fields.yaml#fields[name=awaiting].absent_when_status@5:612-627:b6b2dccd47a93803
+.workshop-ai/workshop-requests.md	28	block:wp-kernel-ticket-lifecycle@01-spec-kernel/spec-kernel.md:759	01-spec-kernel/envelope-fields.yaml#ticket_card.lead.max_chars_warning@6:191-194:26d228663f13a885
+.workshop-ai/workshop-requests.md	29	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	30	block:wp-kernel-links@01-spec-kernel/spec-kernel.md:910	01-spec-kernel/envelope-fields.yaml#label.form@1:125-149:a1c75f4bc0d0f406;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:307-360:29e29297a2aca482
+.workshop-ai/workshop-requests.md	31	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	32	block:wp-kernel-refs-ticket@01-spec-kernel/spec-kernel.md:981	
+.workshop-ai/workshop-requests.md	33	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	34	block:wp-kernel-comments-file@01-spec-kernel/spec-kernel.md:1719	
+.workshop-ai/workshop-requests.md	35	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	36	block:wp-kernel-comment-grammar@01-spec-kernel/spec-kernel.md:1869	09-tg-bot-time-line/tg-bot.yaml#comment.author_token_pattern@1:238-260:d665a912679519fe
+.workshop-ai/workshop-requests.md	37	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	38	block:wp-kernel-comment-append@01-spec-kernel/spec-kernel.md:1954	
+.workshop-ai/workshop-requests.md	39	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	40	block:wp-kernel-gitattributes@01-spec-kernel/spec-kernel.md:2078	
+.workshop-ai/workshop-requests.md	41	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	42	block:wp-kernel-lang-secrets@01-spec-kernel/spec-kernel.md:2364	
+.workshop-ai/workshop-requests.md	43	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	44	block:wp-ticket-forms@03-spec-type-schemas/spec-type-schemas.md:1066	03-spec-type-schemas/ticket-fields.yaml#forms@1:88-124:dbdc3b7ac5554b5d
+.workshop-ai/workshop-requests.md	45	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	46	block:wp-ticket-sections@03-spec-type-schemas/spec-type-schemas.md:1117	
+.workshop-ai/workshop-requests.md	47	block:wp-ticket-sections@03-spec-type-schemas/spec-type-schemas.md:1117	03-spec-type-schemas/section-ids.yaml#kernel_section_ids[id=scope_bounds].meaning@1:47-97:8d7ad981c78bc730;03-spec-type-schemas/section-ids.yaml#kernel_section_ids[id=out_of_scope].meaning@2:167-207:7a6cbd2272dc0a52;03-spec-type-schemas/section-ids.yaml#kernel_section_ids[id=related].meaning@3:223-276:21d8be3c8ca57826;03-spec-type-schemas/section-ids.yaml#introduced_by_ticket_forms[id=why_it_matters].meaning@4:482-551:249aa37e3f455a8b;03-spec-type-schemas/section-ids.yaml#introduced_by_ticket_forms[id=prevention].meaning@5:849-912:11a63349c1fac732;03-spec-type-schemas/section-ids.yaml#introduced_by_repo_type_extension[id=what_we_ask].meaning@6:1054-1095:b9512511cf7ceb30;03-spec-type-schemas/section-ids.yaml#introduced_by_repo_type_extension[id=not_covered].meaning@7:1115-1156:acccd69b3a58a35f
+.workshop-ai/workshop-requests.md	48	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	49	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-requests.md	50	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-requests.md	51	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-requests.md	52	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-requests.md	53	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-requests.md	54	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-requests.md	55	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-requests.md	56	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	03-spec-type-schemas/relations.yaml#link_forms.external.interim_grammar@1:285-309:6c3a5a8254d2fa3e
+.workshop-ai/workshop-requests.md	57	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-requests.md	58	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	59	block:wp-request-pii@03-spec-type-schemas/spec-type-schemas.md:2368	03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.personal_data.scrub_before_first_commit@1:355-512:622a547f72717f15
+.workshop-ai/workshop-requests.md	60	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	61	block:wp-request@03-spec-type-schemas/spec-type-schemas.md:2394	03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.new_fields[name=channel].enum@1:202-229:fd8316700995ca1c;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=channel].values.telegram@2:257-333:994c7e9a61b7f3c0;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=channel].values.email@3:339-429:7b1da2d0e67ea83b;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=channel].values.app@4:435-508:a4082ec36a376d7b;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=channel].values.other@5:514-616:b61d9b32db13dfce;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values@6:1101-1125:3063d45c2ace1782;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values.support@7:1153-1257:2ace2ddc1dac32a6;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values.requester@8:1263-1352:4e7d54b80847afb4;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values.team@9:1358-1517:3fb31ae0567fa062;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=decided_by].question@10:1742-1894:153ccfa5beba6fd8;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.new_fields[name=outcome].enum@11:2033-2069:80b97fb38edf9476;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=outcome].values.answered@12:2097-2171:528621efb40cf9cd;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=outcome].values.fixed@13:2177-2234:9d964c3c5d033df6;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=outcome].values.duplicate@14:2240-2423:57b61e322871f08f;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=outcome].values.declined@15:2429-2475:fa8af7c73775cf25
+.workshop-ai/workshop-requests.md	62	block:wp-request@03-spec-type-schemas/spec-type-schemas.md:2394	03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.body_skeleton.sections_should@16:13-36:93257d92fe14f421;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.response_rule.before_sent@17:257-298:5130b9b2908bffcc
+.workshop-ai/workshop-requests.md	63	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	64	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	03-spec-type-schemas/attachments.yaml#layout.path_grammar@1:410-455:c4ac5ea9cc63b6cf;03-spec-type-schemas/attachments.yaml#filename.grammar@2:548-569:432b1c1cadacbea6;03-spec-type-schemas/attachments.yaml#filename.components.slug.pattern@3:603-627:8cfd8337f988ffe5;03-spec-type-schemas/attachments.yaml#filename.components.slug.max_len@4:633-635:d59eced1ded07f84;03-spec-type-schemas/attachments.yaml#filename.components.ext.pattern@5:713-728:7d10c1dd275a6884
+.workshop-ai/workshop-requests.md	65	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	
+.workshop-ai/workshop-requests.md	66	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	03-spec-type-schemas/attachments.yaml#filename.original_name.escaping_required_chars@6:273-280:f8d849487d647584;03-spec-type-schemas/attachments.yaml#filename.full_path_soft_len_limit@7:895-898:27badc983df1780b
+.workshop-ai/workshop-requests.md	67	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	68	block:wp-att-commit@03-spec-type-schemas/spec-type-schemas.md:4595	03-spec-type-schemas/attachments.yaml#soft_limit.bytes@1:678-685:36877f3dcf657735
+.workshop-ai/workshop-requests.md	69	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	70	block:wp-att-store@03-spec-type-schemas/spec-type-schemas.md:4963	
+.workshop-ai/workshop-requests.md	71	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	72	block:wp-ticket-repo-types@03-spec-type-schemas/spec-type-schemas.md:5473	
+.workshop-ai/workshop-requests.md	73	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	74	deferral:find	
+.workshop-ai/workshop-requests.md	75	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	76	block:wp-validator-forms@05-validator-core/01-invocation-interface.md:440	
+.workshop-ai/workshop-requests.md	77	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	78	block:wp-aon-when@10-spec-assembly/02-agent-operational-norm.md:42	
+.workshop-ai/workshop-requests.md	79	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	80	block:wp-aon-validate@10-spec-assembly/02-agent-operational-norm.md:63	05-validator-core/validator-interface.yaml#return_codes.items[name=warnings_only].rc@1:451-452:6b86b273ff34fce1;05-validator-core/validator-interface.yaml#return_codes.items[name=errors_found].rc@2:488-489:d4735e3a265e16ee
+.workshop-ai/workshop-requests.md	81	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	82	block:wp-aon-validate-pair@10-spec-assembly/02-agent-operational-norm.md:71	
+.workshop-ai/workshop-requests.md	83	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	84	block:wp-aon-commit@10-spec-assembly/02-agent-operational-norm.md:88	
+.workshop-ai/workshop-requests.md	85	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	86	block:wp-aon-comment-time@10-spec-assembly/02-agent-operational-norm.md:102	
+.workshop-ai/workshop-requests.md	87	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	88	block:wp-aon-read-once@10-spec-assembly/02-agent-operational-norm.md:119	
+.workshop-ai/workshop-requests.md	89	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-requests.md	90	block:wp-aon-secrets@10-spec-assembly/02-agent-operational-norm.md:130	
+.workshop-ai/workshop-tickets.md	1	template:templates/profile.md.tmpl:1	
+.workshop-ai/workshop-tickets.md	2	template:templates/profile.md.tmpl:2	
+.workshop-ai/workshop-tickets.md	3	template:templates/profile.md.tmpl:5	
+.workshop-ai/workshop-tickets.md	4	template:templates/profile.md.tmpl:6	
+.workshop-ai/workshop-tickets.md	5	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-tickets.md	6	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-tickets.md	7	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-tickets.md	8	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-tickets.md	9	block:wp-aon-who@10-spec-assembly/03-agent-identity.md:49	
+.workshop-ai/workshop-tickets.md	10	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	11	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#unknown_keys.private_prefix@1:478-480:3e16f53f4127f145
+.workshop-ai/workshop-tickets.md	12	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-tickets.md	13	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	01-spec-kernel/envelope-fields.yaml#fields[name=title].max_len_warning@2:52-54:48449a14a4ff7d79
+.workshop-ai/workshop-tickets.md	14	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-tickets.md	15	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-tickets.md	16	block:wp-kernel-record-file@01-spec-kernel/spec-kernel.md:89	
+.workshop-ai/workshop-tickets.md	17	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	18	block:wp-kernel-namespace@01-spec-kernel/spec-kernel.md:411	
+.workshop-ai/workshop-tickets.md	19	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	20	block:wp-kernel-filename-ticket@01-spec-kernel/spec-kernel.md:415	01-spec-kernel/envelope-fields.yaml#filename.grammar@1:40-76:bf077fd890ecc8e7;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:205-258:29e29297a2aca482;01-spec-kernel/envelope-fields.yaml#filename.components.slug.pattern@3:522-546:8cfd8337f988ffe5;01-spec-kernel/envelope-fields.yaml#filename.components.slug.max_len@4:553-555:48449a14a4ff7d79
+.workshop-ai/workshop-tickets.md	21	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	22	block:wp-kernel-path-ticket@01-spec-kernel/spec-kernel.md:485	01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].root@1:31-38:45a5c62241eec841;01-spec-kernel/envelope-fields.yaml#record_layout.components[name=month].prefix_len@2:79-80:7902699be42c8a8e;01-spec-kernel/envelope-fields.yaml#record_layout.components[name=decade].prefix_len@3:121-122:19581e27de7ced00;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].example.type@4:262-267:b74a899eb1404983;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].example.created@5:271-291:b7d5599921de1085;01-spec-kernel/envelope-fields.yaml#record_layout.classes[record_class=ticket].example.dir@6:298-330:636c735123a66c14;01-spec-kernel/envelope-fields.yaml#record_layout.reserved_type_dirs@7:500-511:3930e671c9e40dee
+.workshop-ai/workshop-tickets.md	23	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	24	block:wp-kernel-version-ticket@01-spec-kernel/spec-kernel.md:550	
+.workshop-ai/workshop-tickets.md	25	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	26	block:wp-kernel-ticket-lifecycle@01-spec-kernel/spec-kernel.md:759	01-spec-kernel/envelope-fields.yaml#fields[name=status].enum@1:284-360:df223b59a2fdc3a4
+.workshop-ai/workshop-tickets.md	27	block:wp-kernel-ticket-lifecycle@01-spec-kernel/spec-kernel.md:759	03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values@2:425-459:44834874b590c6b8;03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.field_semantics[field=awaiting].values@3:476-500:3063d45c2ace1782;01-spec-kernel/envelope-fields.yaml#fields[name=awaiting].enum@4:531-574:b36c66b7f4a652e1;01-spec-kernel/envelope-fields.yaml#fields[name=awaiting].absent_when_status@5:612-627:b6b2dccd47a93803
+.workshop-ai/workshop-tickets.md	28	block:wp-kernel-ticket-lifecycle@01-spec-kernel/spec-kernel.md:759	01-spec-kernel/envelope-fields.yaml#ticket_card.lead.max_chars_warning@6:191-194:26d228663f13a885
+.workshop-ai/workshop-tickets.md	29	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	30	block:wp-kernel-links@01-spec-kernel/spec-kernel.md:910	01-spec-kernel/envelope-fields.yaml#label.form@1:125-149:a1c75f4bc0d0f406;01-spec-kernel/envelope-fields.yaml#filename.components.label.pending_source@2:307-360:29e29297a2aca482
+.workshop-ai/workshop-tickets.md	31	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	32	block:wp-kernel-refs-ticket@01-spec-kernel/spec-kernel.md:981	
+.workshop-ai/workshop-tickets.md	33	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	34	block:wp-kernel-comments-file@01-spec-kernel/spec-kernel.md:1719	
+.workshop-ai/workshop-tickets.md	35	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	36	block:wp-kernel-comment-grammar@01-spec-kernel/spec-kernel.md:1869	09-tg-bot-time-line/tg-bot.yaml#comment.author_token_pattern@1:238-260:d665a912679519fe
+.workshop-ai/workshop-tickets.md	37	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	38	block:wp-kernel-comment-append@01-spec-kernel/spec-kernel.md:1954	
+.workshop-ai/workshop-tickets.md	39	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	40	block:wp-kernel-gitattributes@01-spec-kernel/spec-kernel.md:2078	
+.workshop-ai/workshop-tickets.md	41	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	42	block:wp-kernel-lang-secrets@01-spec-kernel/spec-kernel.md:2364	
+.workshop-ai/workshop-tickets.md	43	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	44	block:wp-ticket-forms@03-spec-type-schemas/spec-type-schemas.md:1066	03-spec-type-schemas/ticket-fields.yaml#forms@1:88-124:dbdc3b7ac5554b5d
+.workshop-ai/workshop-tickets.md	45	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	46	block:wp-ticket-sections@03-spec-type-schemas/spec-type-schemas.md:1117	
+.workshop-ai/workshop-tickets.md	47	block:wp-ticket-sections@03-spec-type-schemas/spec-type-schemas.md:1117	03-spec-type-schemas/section-ids.yaml#kernel_section_ids[id=scope_bounds].meaning@1:47-97:8d7ad981c78bc730;03-spec-type-schemas/section-ids.yaml#kernel_section_ids[id=out_of_scope].meaning@2:167-207:7a6cbd2272dc0a52;03-spec-type-schemas/section-ids.yaml#kernel_section_ids[id=related].meaning@3:223-276:21d8be3c8ca57826;03-spec-type-schemas/section-ids.yaml#introduced_by_ticket_forms[id=why_it_matters].meaning@4:482-551:249aa37e3f455a8b;03-spec-type-schemas/section-ids.yaml#introduced_by_ticket_forms[id=prevention].meaning@5:849-912:11a63349c1fac732;03-spec-type-schemas/section-ids.yaml#introduced_by_repo_type_extension[id=what_we_ask].meaning@6:1054-1095:b9512511cf7ceb30;03-spec-type-schemas/section-ids.yaml#introduced_by_repo_type_extension[id=not_covered].meaning@7:1115-1156:acccd69b3a58a35f
+.workshop-ai/workshop-tickets.md	48	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	49	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-tickets.md	50	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-tickets.md	51	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-tickets.md	52	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-tickets.md	53	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-tickets.md	54	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-tickets.md	55	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-tickets.md	56	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	03-spec-type-schemas/relations.yaml#link_forms.external.interim_grammar@1:285-309:6c3a5a8254d2fa3e
+.workshop-ai/workshop-tickets.md	57	block:wp-ticket-relations@03-spec-type-schemas/spec-type-schemas.md:1168	
+.workshop-ai/workshop-tickets.md	58	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	59	block:wp-task@03-spec-type-schemas/spec-type-schemas.md:1251	03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=proposal].statuses@1:174-186:9e1edc2b7b258b15;03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=proposal].sections_should@2:358-392:d72826f5a5b5f23b;03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=accepted].statuses@3:394-439:2e8e5f1384854dc6;03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=accepted].meaning@4:444-650:aa03f8068c7e2448;03-spec-type-schemas/ticket-fields.yaml#types.TASK.stages.stage_rules[stage=closed].statuses@5:678-693:b6b2dccd47a93803
+.workshop-ai/workshop-tickets.md	60	block:wp-task@03-spec-type-schemas/spec-type-schemas.md:1251	03-spec-type-schemas/ticket-fields.yaml#types.TASK.new_fields[name=kind].enum@6:60-97:c2fc6fce1e192887;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.dev@7:125-244:d38d1c21d4bb6b0d;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.design@8:250-414:e20f5e3309499031;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.qa@9:420-510:fd533221429e4592;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.research@10:516-644:c8fe4484af3fd969;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.ops@11:650-774:1a61a2b01d33f9ed;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=kind].values.other@12:780-856:f8375cc021e1423d;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values@13:1023-1057:44834874b590c6b8;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values.team@14:1085-1130:10e8ef5814be632e;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values.designer@15:1136-1164:593b41c5cd9e7801;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values.product@16:1170-1270:d80bfe91f0da1e03;03-spec-type-schemas/ticket-fields.yaml#types.TASK.field_semantics[field=awaiting].values.requester@17:1276-1389:1cb1b28401ee6065
+.workshop-ai/workshop-tickets.md	61	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	62	block:wp-task-design@03-spec-type-schemas/spec-type-schemas.md:1336	03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values@1:127-156:10892f0cae8875c6;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values.mockup@2:184-247:c3deaed3b5c81ba1;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values.gap@3:253-384:9de67c9488b40043;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values.review@4:390-478:32aa5c3950b6ff55;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.direction.values.question@5:484-557:7f352aef9b81a64a;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.body.sections_should_by_direction.mockup@6:588-613:932a6ce0bfc4a366;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.body.sections_should_by_direction.gap@7:625-650:6aca96c46314084b;03-spec-type-schemas/ticket-fields.yaml#types.TASK.design_kind.body.sections_should_by_direction.review@8:677-709:1342182da1e139b7
+.workshop-ai/workshop-tickets.md	63	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	64	block:wp-task-hotfix@03-spec-type-schemas/spec-type-schemas.md:1426	03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.block.fields[name=origin].enum@1:246-293:2e27006ab6ed275e;03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.block.fields[name=package].pattern@2:830-854:8cfd8337f988ffe5;03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.block.fields[name=ship_by].required_when_status@3:936-968:997d8b5fd3df038e
+.workshop-ai/workshop-tickets.md	65	block:wp-task-hotfix@03-spec-type-schemas/spec-type-schemas.md:1426	03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.mode_tightenings[field=assignee].to.required_when_status@4:38-70:997d8b5fd3df038e;03-spec-type-schemas/ticket-fields.yaml#types.TASK.hotfix_mode.body.sections_should@5:192-229:68ee30524cf99792
+.workshop-ai/workshop-tickets.md	66	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	67	block:wp-issue@03-spec-type-schemas/spec-type-schemas.md:1633	03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.new_fields[name=evidence_kinds].enum@1:98-160:39c9d041fd9e9b10;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=observed].strength@2:745-757:9dda0fbce8c97cdd;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=why_it_matters].strength@3:778-792:baade52fba867c22;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=proposal].strength@4:807-817:ad9fd21f0c78038c;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=unverified].strength@5:834-848:baade52fba867c22;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=tool_limitation].strength@6:870-1000:d5e355fa2f15f37f;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=related].strength@7:1014-1024:ad9fd21f0c78038c;03-spec-type-schemas/ticket-fields.yaml#types.ISSUE.body_skeleton[id=provenance].strength@8:1041-1055:baade52fba867c22
+.workshop-ai/workshop-tickets.md	68	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	69	block:wp-incident@03-spec-type-schemas/spec-type-schemas.md:1782	03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.new_fields[name=ended_at].required_status_set@1:156-171:b6b2dccd47a93803;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.new_fields[name=environment].enum@2:191-207:499de801835501fe;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=summary].strength@3:840-852:9dda0fbce8c97cdd;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=root_cause].strength@4:869-879:ad9fd21f0c78038c;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=scale].strength@5:906-920:baade52fba867c22;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=not_recovered].strength@6:940-952:9dda0fbce8c97cdd;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=prevention].strength@7:969-983:baade52fba867c22;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=side_findings].strength@8:1003-1088:406a268b46a51c79;03-spec-type-schemas/ticket-fields.yaml#types.INCIDENT.body_skeleton.sections[id=provenance].strength@9:1114-1124:ad9fd21f0c78038c
+.workshop-ai/workshop-tickets.md	70	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	71	block:wp-epic@03-spec-type-schemas/spec-type-schemas.md:2036	03-spec-type-schemas/ticket-fields.yaml#types.EPIC.body_skeleton.sections@1:386-442:50bf44500eba127b
+.workshop-ai/workshop-tickets.md	72	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	73	block:wp-request-origin-pii@03-spec-type-schemas/spec-type-schemas.md:2372	03-spec-type-schemas/ticket-fields.yaml#types.REQUEST.personal_data.scrub_before_first_commit@1:408-565:622a547f72717f15
+.workshop-ai/workshop-tickets.md	74	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	75	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	03-spec-type-schemas/attachments.yaml#layout.path_grammar@1:410-455:c4ac5ea9cc63b6cf;03-spec-type-schemas/attachments.yaml#filename.grammar@2:548-569:432b1c1cadacbea6;03-spec-type-schemas/attachments.yaml#filename.components.slug.pattern@3:603-627:8cfd8337f988ffe5;03-spec-type-schemas/attachments.yaml#filename.components.slug.max_len@4:633-635:d59eced1ded07f84;03-spec-type-schemas/attachments.yaml#filename.components.ext.pattern@5:713-728:7d10c1dd275a6884
+.workshop-ai/workshop-tickets.md	76	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	
+.workshop-ai/workshop-tickets.md	77	block:wp-att-path@03-spec-type-schemas/spec-type-schemas.md:4211	03-spec-type-schemas/attachments.yaml#filename.original_name.escaping_required_chars@6:273-280:f8d849487d647584;03-spec-type-schemas/attachments.yaml#filename.full_path_soft_len_limit@7:895-898:27badc983df1780b
+.workshop-ai/workshop-tickets.md	78	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	79	block:wp-att-commit@03-spec-type-schemas/spec-type-schemas.md:4595	03-spec-type-schemas/attachments.yaml#soft_limit.bytes@1:678-685:36877f3dcf657735
+.workshop-ai/workshop-tickets.md	80	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	81	block:wp-att-store@03-spec-type-schemas/spec-type-schemas.md:4963	
+.workshop-ai/workshop-tickets.md	82	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	83	block:wp-ticket-repo-types@03-spec-type-schemas/spec-type-schemas.md:5473	
+.workshop-ai/workshop-tickets.md	84	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	85	deferral:find	
+.workshop-ai/workshop-tickets.md	86	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	87	block:wp-validator-forms@05-validator-core/01-invocation-interface.md:440	
+.workshop-ai/workshop-tickets.md	88	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	89	block:wp-aon-when@10-spec-assembly/02-agent-operational-norm.md:42	
+.workshop-ai/workshop-tickets.md	90	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	91	block:wp-aon-validate@10-spec-assembly/02-agent-operational-norm.md:63	05-validator-core/validator-interface.yaml#return_codes.items[name=warnings_only].rc@1:451-452:6b86b273ff34fce1;05-validator-core/validator-interface.yaml#return_codes.items[name=errors_found].rc@2:488-489:d4735e3a265e16ee
+.workshop-ai/workshop-tickets.md	92	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	93	block:wp-aon-validate-pair@10-spec-assembly/02-agent-operational-norm.md:71	
+.workshop-ai/workshop-tickets.md	94	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	95	block:wp-aon-commit@10-spec-assembly/02-agent-operational-norm.md:88	
+.workshop-ai/workshop-tickets.md	96	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	97	block:wp-aon-comment-time@10-spec-assembly/02-agent-operational-norm.md:102	
+.workshop-ai/workshop-tickets.md	98	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	99	block:wp-aon-read-once@10-spec-assembly/02-agent-operational-norm.md:119	
+.workshop-ai/workshop-tickets.md	100	template:templates/profile.md.tmpl:7	
+.workshop-ai/workshop-tickets.md	101	block:wp-aon-secrets@10-spec-assembly/02-agent-operational-norm.md:130	
+AGENTS.md	1	template:../bot/kit/ai/standing.md.tmpl:1	customer:repo@1:18-45:9d746af917af8e3d
+AGENTS.md	2	template:../bot/kit/ai/standing.md.tmpl:2	
+AGENTS.md	3	template:../bot/kit/ai/standing.md.tmpl:3	
+AGENTS.md	4	template:../bot/kit/ai/standing.md.tmpl:4	
+AGENTS.md	5	template:../bot/kit/ai/standing.md.tmpl:5	03-spec-type-schemas/form-registry.yaml#profile_forms.tickets@1:212-239:09c0cad1554cdba4
+AGENTS.md	6	template:../bot/kit/ai/standing.md.tmpl:6	customer:forge@2:145-157:68580f53e65be310;customer:forge_login_cmd@3:160-176:4fd7a80b50850c99
+AGENTS.md	7	template:../bot/kit/ai/standing.md.tmpl:7	customer:validator_bin@4:62-94:ddb1502423fee906;customer:validator_install@5:193-239:d62598e4b63be4b6
+AGENTS.md	8	template:../bot/kit/ai/standing.md.tmpl:8	
+CLAUDE.md	1	template:../bot/kit/ai/standing.md.tmpl:1	customer:repo@1:18-45:9d746af917af8e3d
+CLAUDE.md	2	template:../bot/kit/ai/standing.md.tmpl:2	
+CLAUDE.md	3	template:../bot/kit/ai/standing.md.tmpl:3	
+CLAUDE.md	4	template:../bot/kit/ai/standing.md.tmpl:4	
+CLAUDE.md	5	template:../bot/kit/ai/standing.md.tmpl:5	03-spec-type-schemas/form-registry.yaml#profile_forms.tickets@1:212-239:09c0cad1554cdba4
+CLAUDE.md	6	template:../bot/kit/ai/standing.md.tmpl:6	customer:forge@2:145-157:68580f53e65be310;customer:forge_login_cmd@3:160-176:4fd7a80b50850c99
+CLAUDE.md	7	template:../bot/kit/ai/standing.md.tmpl:7	customer:validator_bin@4:62-94:ddb1502423fee906;customer:validator_install@5:193-239:d62598e4b63be4b6
+CLAUDE.md	8	template:../bot/kit/ai/standing.md.tmpl:8	

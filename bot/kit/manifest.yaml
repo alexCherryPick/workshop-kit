@@ -2,6 +2,9 @@ schema_version: 1
 kit_version: 0.1.0
 kit_schema_version: 1
 workflows_dir: .github/workflows
+customer_layer:
+  path: .workshop-ai/customer-layer.yaml
+  sha256: 387f7ddc51ac7dddd357cc0e703528c087765a6bfff5bb1b8c4346ded91cc0e7
 entries:
   - src: bot/aggregation.py
     dst: .workshop/bot/aggregation.py
@@ -181,22 +184,22 @@ entries:
   - src: bot/kit/validator-release.yaml
     dst: .workshop/bot/kit/validator-release.yaml
     role: code
-    sha256: 22394ff595a2d2e22bbc5b4e248cae956ab18d5095495ea31babe4755dfff3b7
+    sha256: 75e4cc3cd3288cdbb2bc0d05d40f1eaaa4ee3b3d9fa960d1b16c563171ece21a
     mode: 0644
   - src: bot/kit/workflows/bootstrap.yml
     dst: .github/workflows/workshop-bot-bootstrap.yml
     role: manual
-    sha256: 5674f6bf30dd2677002e9705d55423715016b22e9904e6397443fb6479e3458c
+    sha256: bbe82c2e429fd7a2785d8fbd8d457bb6ad3e544eeb72a0455a6071d10b39a68b
     mode: 0644
   - src: bot/kit/workflows/heartbeat.yml
     dst: .github/workflows/workshop-bot-heartbeat.yml
     role: workflow
-    sha256: 1a91b8993be33d02cad70d7248903ef2e79e9b4d018b4e134da42dec2c6536ca
+    sha256: b8198277ee41fe7f7f2bd3215df52e63214695e911f227c2d20c024b38cec6c0
     mode: 0644
   - src: bot/kit/workflows/poller.yml
     dst: .github/workflows/workshop-bot-poller.yml
     role: workflow
-    sha256: e15fefe481f1ae312282c11f676972cde378d7dd268f6027f3c18c7b954bded8
+    sha256: 0af07da68f5b5b708efa4678963c6678af3cbf4d9365ab214600688314d83757
     mode: 0644
   - src: bot/lastn.py
     dst: .workshop/bot/lastn.py
@@ -248,3 +251,58 @@ entries:
     role: code
     sha256: 73f45c08f402ed0824432b3a4c5b33a61387be2ac47cc96fda842b3dd208003c
     mode: 0644
+  - src: profiles/out/.workshop-ai/workshop-docs.md
+    dst: .workshop-ai/workshop-docs.md
+    role: managed
+    sha256: b02cc1a83e41fe7feead389b4bcbcda6c264a54994deee46a9942ec24984397f
+    mode: 0644
+  - src: profiles/out/.workshop-ai/workshop-full.md
+    dst: .workshop-ai/workshop-full.md
+    role: managed
+    sha256: 63d10b95882fcfe096261cf34cc0ec2d3971f4ca389d3f234f5421dd4ce6a64e
+    mode: 0644
+  - src: profiles/out/.workshop-ai/workshop-hours.md
+    dst: .workshop-ai/workshop-hours.md
+    role: managed
+    sha256: 2f6dfdebfaa5b5ec667964dfff60d1293d69f9e53d1d7e8db63fa9a6d83547f0
+    mode: 0644
+  - src: profiles/out/.workshop-ai/workshop-requests.md
+    dst: .workshop-ai/workshop-requests.md
+    role: managed
+    sha256: 9d3bd21f31b664f43918145cd9418f604241cece58bf4a5770e6b948f68a80db
+    mode: 0644
+  - src: profiles/out/.workshop-ai/workshop-tickets.md
+    dst: .workshop-ai/workshop-tickets.md
+    role: managed
+    sha256: 2dba7f164a8b7232579bcdf24f616bd417cee8c908280308ca63e73360e0e1ef
+    mode: 0644
+  - src: profiles/out/AGENTS.md
+    dst: AGENTS.md
+    role: managed
+    sha256: 737acbd6b0e2c4a308c5904087c848116b6baef1fa2672b2064ad25b931aa370
+    mode: 0644
+  - src: profiles/out/CLAUDE.md
+    dst: CLAUDE.md
+    role: managed
+    sha256: 737acbd6b0e2c4a308c5904087c848116b6baef1fa2672b2064ad25b931aa370
+    mode: 0644
+retire:
+  - path: .workshop/ai/workshop-hours-v0.md
+    sha256: 39d6cedc3db6e80523dba806fb957b5c3f06044dd5821e2c18cc4c5e02599666
+  - path: .workshop/ai/workshop-paste-v0.md
+    sha256: 9a43018d2ad4d1352c952e0632841b9571c5dc26604bb95ee94e7be48ce9a9c4
+  - path: .workshop/ai/recipe.md
+    sha256: 2562f8f40bf6efdbfb5fb103325a8924c39d34641e2b925829c793b402f6a5bb
+  - path: .workshop/ai/workshop-hours.md
+    sha256: 389db8f303dab7bb94673b5aafc5a75e9a98005c3bec2cdf6ee5b159617063dc
+  - path: .workshop/ai/workshop-tickets.md
+    sha256: 52091c77e6f839616923b64d5c02e24c447551cba1bc22a83a182fa25ec3ec48
+  - path: .workshop/ai/workshop-docs.md
+    sha256: 3abef0bbeb65fe066c0199e504fb810bb5b9c3f14eb96737fb772b850da48d5f
+  - path: .workshop/ai/workshop-full.md
+    sha256: d9d5dbd8faed45c422b5a671ac18208677da3824efafe3870da4f78837a0fd74
+supersedes:
+  - path: AGENTS.md
+    sha256: a57f219bde838753aaa8fb78496ac58fad363dc39ecf9d92596a701927cce570
+  - path: CLAUDE.md
+    sha256: a57f219bde838753aaa8fb78496ac58fad363dc39ecf9d92596a701927cce570
