@@ -184,22 +184,22 @@ entries:
   - src: bot/kit/validator-release.yaml
     dst: .workshop/bot/kit/validator-release.yaml
     role: code
-    sha256: 75e4cc3cd3288cdbb2bc0d05d40f1eaaa4ee3b3d9fa960d1b16c563171ece21a
+    sha256: b009495446988d2f652f30949177660449b988d36dbef12d7920469d87e3d5f6
     mode: 0644
   - src: bot/kit/workflows/bootstrap.yml
     dst: .github/workflows/workshop-bot-bootstrap.yml
     role: manual
-    sha256: bbe82c2e429fd7a2785d8fbd8d457bb6ad3e544eeb72a0455a6071d10b39a68b
+    sha256: 5674f6bf30dd2677002e9705d55423715016b22e9904e6397443fb6479e3458c
     mode: 0644
   - src: bot/kit/workflows/heartbeat.yml
     dst: .github/workflows/workshop-bot-heartbeat.yml
     role: workflow
-    sha256: b8198277ee41fe7f7f2bd3215df52e63214695e911f227c2d20c024b38cec6c0
+    sha256: 1a91b8993be33d02cad70d7248903ef2e79e9b4d018b4e134da42dec2c6536ca
     mode: 0644
   - src: bot/kit/workflows/poller.yml
     dst: .github/workflows/workshop-bot-poller.yml
     role: workflow
-    sha256: 0af07da68f5b5b708efa4678963c6678af3cbf4d9365ab214600688314d83757
+    sha256: e15fefe481f1ae312282c11f676972cde378d7dd268f6027f3c18c7b954bded8
     mode: 0644
   - src: bot/lastn.py
     dst: .workshop/bot/lastn.py
