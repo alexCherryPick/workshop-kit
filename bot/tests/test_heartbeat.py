@@ -315,6 +315,8 @@ class CancelTests(Base):
         r, t, _ = self.beat(now=T0 + cm * 60 + 1)
         self.assertEqual(len(t.sent), 1)
         self.assertIn("ответом на это сообщение", t.sent[0][1])
+        # ЭРРАТА D10 «А», А5: обращение к боту в свободном тексте privacy-mode не доставляет — подсказка его не предлагает
+        self.assertNotIn("обращени", t.sent[0][1])
         self.assertTrue(t.sent[0][1].splitlines()[-1].endswith(" №7"))
 
     def test_debt_is_committed_with_cancellation(self):

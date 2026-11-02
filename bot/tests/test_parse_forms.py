@@ -90,6 +90,9 @@ def golden():
             m = re.match(r"^    expected_title:(.*)$", s)
             if m and cur:
                 cur["title"] = scalar(m.group(1))
+            m = re.match(r"^    expected_date:(.*)$", s)   # ЭРРАТА D10 «А»: форма «дата + длительность» — golden даты записи
+            if m and cur:
+                cur["date"] = scalar(m.group(1))
         elif section == "neg":
             m = re.match(r"^  - example:(.*)$", s)
             if m:
@@ -129,9 +132,10 @@ class FormsGoldenTests(unittest.TestCase):
         rows = []
         for f in self.forms:
             r = self.P.parse(upd(f["example"]))
-            got = (r.get("kind"), (r.get("time") or {}).get("seconds"), r.get("title"))
+            got = (r.get("kind"), (r.get("time") or {}).get("seconds"), r.get("title"), r.get("date"))
             rows.append("  %-28s %-38r → %s" % (f["id"], f["example"], got))
-            self.assertEqual(got, ("input", f["seconds"], f["title"]), f["id"])
+            # дата записи: форма без expected_date — «сегодня» (явной даты нет, None); с ним — ровно эта дата
+            self.assertEqual(got, ("input", f["seconds"], f["title"], f.get("date")), f["id"])
         sys.stderr.write("\n[forms golden] %d форм:\n%s\n" % (len(rows), "\n".join(rows)))
 
     def test_negative_corpus_reasons(self):
@@ -175,6 +179,13 @@ class FormsGoldenTests(unittest.TestCase):
         rx = re.compile(r"(\d+(?:[.,]\d+)?)\s*([a-zа-я]+)\.?", re.IGNORECASE)
         for f in self.forms:
             ex = f["example"]
+            # правило оракула (своё): ведущая дата ГГГГ-ММ-ДД — не длительность, снимается до анализа позиций
+            dm = re.match(r"^\d{4}-\d{2}-\d{2}\s+", ex)
+            if dm:
+                self.assertEqual(dm.group(0).strip(), f.get("date"), "дата примера расходится с expected_date: %s" % f["id"])
+                ex = ex[dm.end():]
+            else:
+                self.assertIsNone(f.get("date"), "expected_date без даты в примере: %s" % f["id"])
             if ":" in ex.split()[0]:      # ЧЧ:ММ — только ведущая позиция (hhmm_positions)
                 hh, mm = re.match(r"(\d+):(\d\d)", ex.split()[0]).groups(); want = int(hh) * 3600 + int(mm) * 60
             else:

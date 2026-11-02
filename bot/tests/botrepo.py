@@ -3,9 +3,6 @@
 транспортом. Оракульный хелпер — НЕ импортирует писателей ради ожиданий: ожидания тестов считаются
 из байтов файлов и git-журнала, а не из функций bot/. Использует stdlib + git."""
 import os, re, shutil, subprocess, tempfile
-import sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import gitquiet  # noqa: E402,F401 — автообслуживание git выключено для стенда (флейк maintenance.lock)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BOT = os.path.abspath(os.path.join(HERE, ".."))
@@ -152,3 +149,10 @@ def callback(data, from_id=ADMIN_ID, chat_id=CHAT, update_id=None):
     return {"update_id": uid, "callback_query": {"id": "cq%d" % _N[0], "from": {"id": from_id, "first_name": "T"},
                                                  "message": {"message_id": 3000 + _N[0], "chat": {"id": chat_id, "type": "supergroup"}},
                                                  "data": data}}
+
+
+def traced_reason(ctx):
+    """Имя причины последнего переспроса исходов 4/23 — из ТРАССЫ поллера (ЭРРАТА D10 «А»: человеку уходит фраза реестра,
+    машинное имя — только в трассу); None — переспроса с причиной не было."""
+    notes = [o["note"] for o in ctx.trace.ops if o["op"] == "reask_reason"]
+    return notes[-1] if notes else None

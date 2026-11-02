@@ -27,12 +27,14 @@ env:
   WORKSHOP_TG_BOT_TOKEN: ${{ secrets.WORKSHOP_TG_BOT_TOKEN }}
   WORKSHOP_FORGE_TOKEN: ${{ secrets.WORKSHOP_FORGE_TOKEN }}
   WORKSHOP_DEPLOY_KEY: ${{ secrets.WORKSHOP_DEPLOY_KEY }}
+  WORKSHOP_S3_ACCESS_KEY_ID: ${{ secrets.WORKSHOP_S3_ACCESS_KEY_ID }}
+  WORKSHOP_S3_SECRET_ACCESS_KEY: ${{ secrets.WORKSHOP_S3_SECRET_ACCESS_KEY }}
 jobs:
   poll:
     runs-on: ubuntu-latest
     steps:
       - name: checkout customer repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@PIN-ACTION-CHECKOUT-SHA
         with:
           token: ${{ secrets.WORKSHOP_FORGE_TOKEN || github.token }}
           ssh-key: ${{ secrets.WORKSHOP_DEPLOY_KEY }}

@@ -275,5 +275,104 @@ class Round2Tests(unittest.TestCase):
             r = self.P.parse(upd(text)); self.assertEqual((r["kind"], r["position"]), ("input", "help"), repr(text))
         r = self.P.parse(upd(st + " созвон")); self.assertEqual(r["position"], "start_title")   # ни номера, ни видимого заголовка
 
+def registry_examples():
+    """[(id, поле, пример)] — поля example / example_dated позиций реестра построчно (ЭРРАТА D10 «А», Б2) и префикс
+    подтверждения; литералов примеров в тесте нет."""
+    out, cur, inside, confirm = [], None, False, None
+    for ln in open(REG, encoding="utf-8"):
+        m = re.match(r'^confirm_prefix: "(.*)"$', ln)
+        if m:
+            confirm = m.group(1)
+        if ln.startswith("commands:"):
+            inside = True
+        if not inside:
+            continue
+        m = re.match(r"^  - id: (\S+)", ln)
+        if m:
+            cur = m.group(1); continue
+        m = re.match(r'^    (example|example_dated): "(.*)"$', ln)
+        if m and cur:
+            out.append((cur, m.group(1), m.group(2)))
+    return out, confirm
+
+
+class RegistryExampleTests(unittest.TestCase):
+    """Б2: КАЖДЫЙ пример позиции реестра разбирается в СВОЮ позицию (пример подтверждения — обёрткой своей позиции);
+    пример с явной датой — ровно в эту дату. Иначе справка учит вводу, которого бот не примет."""
+
+    def test_every_registry_example_parses_into_its_position(self):
+        P = parse.Parser(REG, bot_username="cp_workshop_test_bot")
+        rows, confirm = registry_examples()
+        self.assertTrue(any(f == "example_dated" for _, f, _ in rows), "в реестре нет ни одного примера задним числом")
+        seen = set()
+        for pid, field, ex in rows:
+            r = P.parse(upd(ex))
+            got = r.get("wrapped_by") if TOK.get(pid) == confirm else r.get("position")
+            self.assertEqual((r["kind"], got), ("input", pid), "%s.%s %r → %s" % (pid, field, ex, r.get("reason")))
+            dm = re.search(r"(?:^|\s)(\d{4}-\d{2}-\d{2})(?:\s|$)", ex)
+            self.assertEqual(r.get("date"), dm.group(1) if dm else None, "%s.%s: дата примера" % (pid, field))
+            if field == "example_dated":
+                self.assertIsNotNone(dm, "%s.example_dated без явной даты" % pid)
+            seen.add(pid)
+        self.assertEqual(seen, set(r["id"] for r in registry_rows()), "у позиции нет примера")
+
+
+class ReplyToBotTests(unittest.TestCase):
+    """А6: ответ (reply) на сообщение САМОГО бота — адресован (как обращение `@бот`); ответ человеку, чужому боту,
+    корневому служебному сообщению топика — нет. Матрица пакетом: {id известен, только имя, ничего} × автор ответа."""
+    BOT_ID = 999000001
+
+    def upd_reply(self, text, rt_from, extra=None):
+        u = upd(text, chat=-1001, ctype="supergroup")
+        rt = {"message_id": 5, "date": 1, "chat": {"id": -1001, "type": "supergroup"}, "text": "x"}
+        if rt_from is not None:
+            rt["from"] = rt_from
+        rt.update(extra or {})
+        u["message"]["reply_to_message"] = rt
+        return u
+
+    def test_reply_to_bot_matrix(self):
+        me = {"id": self.BOT_ID, "is_bot": True, "first_name": "B", "username": "cp_workshop_test_bot"}
+        other_bot = {"id": self.BOT_ID + 1, "is_bot": True, "first_name": "O", "username": "otherbot"}
+        human = {"id": 100000003, "is_bot": False, "first_name": "H", "username": "cp_workshop_test_bot"}
+        spoof = {"id": self.BOT_ID + 2, "is_bot": True, "first_name": "S", "username": "cp_workshop_test_bot"}
+        by_id = parse.Parser(REG, bot_username="cp_workshop_test_bot", bot_id=self.BOT_ID)
+        by_name = parse.Parser(REG, bot_username="cp_workshop_test_bot")
+        blind = parse.Parser(REG)
+        cases = [
+            ("id: ответ боту, текст не разобран", by_id, self.upd_reply("просто текст", me), ("unparsed", True, True)),
+            ("id: ответ боту, свободная строка", by_id, self.upd_reply("2ч созвон", me), ("input", True, True)),
+            ("id: ответ боту, команда", by_id, self.upd_reply(TOK["last"], me), ("input", True, True)),
+            ("id: ответ боту с тем же именем, но другим id", by_id, self.upd_reply("просто текст", spoof), ("unparsed", False, False)),
+            ("id: ответ чужому боту", by_id, self.upd_reply("просто текст", other_bot), ("unparsed", False, False)),
+            ("id: ответ человеку", by_id, self.upd_reply("просто текст", human), ("unparsed", False, False)),
+            ("id: корень топика форум-группы от бота", by_id, self.upd_reply("просто текст", me, {"forum_topic_created": {"name": "t"}}), ("unparsed", False, False)),
+            ("id: ответ без автора", by_id, self.upd_reply("просто текст", None), ("unparsed", False, False)),
+            ("id: без ответа", by_id, upd("просто текст", chat=-1001, ctype="supergroup"), ("unparsed", False, False)),
+            ("id: bool вместо id", parse.Parser(REG, bot_id=True), self.upd_reply("просто текст", dict(me, id=True)), ("unparsed", False, False)),
+            # L-01 (адверсарий R1): идентичность — ТОЧНОЕ равенство целых; свой id не суффикс, не префикс, не подстрока,
+            # не строка и не модуль чужого (чужой бот с чужим именем, чтобы клетку не закрыл запасной путь по имени)
+            ("id: чужой id с нашим суффиксом (2999000001)", by_id, self.upd_reply("просто текст", dict(other_bot, id=int("2" + str(self.BOT_ID)))), ("unparsed", False, False)),
+            ("id: чужой id с нашим префиксом (9990000017)", by_id, self.upd_reply("просто текст", dict(other_bot, id=int(str(self.BOT_ID) + "7"))), ("unparsed", False, False)),
+            ("id: чужой id — наш без последней цифры", by_id, self.upd_reply("просто текст", dict(other_bot, id=int(str(self.BOT_ID)[:-1]))), ("unparsed", False, False)),
+            ("id: наш id строкой", by_id, self.upd_reply("просто текст", dict(other_bot, id=str(self.BOT_ID))), ("unparsed", False, False)),
+            ("id: наш id со знаком минус", by_id, self.upd_reply("просто текст", dict(other_bot, id=-self.BOT_ID)), ("unparsed", False, False)),
+            ("id: наш id дробным числом", by_id, self.upd_reply("просто текст", dict(other_bot, id=float(self.BOT_ID))), ("unparsed", False, False)),
+            ("имя: ответ боту", by_name, self.upd_reply("просто текст", me), ("unparsed", True, True)),
+            ("имя: регистр имени", by_name, self.upd_reply("просто текст", dict(me, username="CP_Workshop_Test_Bot")), ("unparsed", True, True)),
+            ("имя: человек с тем же именем", by_name, self.upd_reply("просто текст", human), ("unparsed", False, False)),
+            ("имя: чужой бот", by_name, self.upd_reply("просто текст", other_bot), ("unparsed", False, False)),
+            ("ничего не известно: ответ боту", blind, self.upd_reply("просто текст", me), ("unparsed", False, False)),
+            ("обращение @бот без ответа (прежняя клетка)", by_id, upd("@cp_workshop_test_bot просто текст", chat=-1001, ctype="supergroup"), ("unparsed", True, False)),
+        ]
+        rows = []
+        for name, P, u, want in cases:
+            r = P.parse(u)
+            got = (r["kind"], bool(r.get("addressed")), bool(r.get("reply_to_bot")))
+            rows.append("  %s  %-45s → %s" % ("PASS" if got == want else "FAIL", name, got))
+            self.assertEqual(got, want, name)
+        sys.stderr.write("\n[А6 разбор] %d:\n%s\n" % (len(rows), "\n".join(rows)))
+
+
 if __name__ == "__main__":
     unittest.main()

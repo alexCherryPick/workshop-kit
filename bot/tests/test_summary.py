@@ -142,10 +142,10 @@ class SummaryTests(unittest.TestCase):
 
     def test_callback_and_confirm_are_rejected_without_reading(self):
         self.seed()
-        r, t, _ = self.run_poll([callback(SUM)])
-        self.assertEqual(r["outcomes"][-1][1], "reask_unparsed"); self.assertIn("callback_not_allowed", self.last_text(t))
-        r, t, _ = self.run_poll([msg(TOK["confirm"] + " " + SUM + " team", date=T0)])
-        self.assertEqual(r["outcomes"][-1][1], "reask_unparsed"); self.assertIn("confirm_not_allowed", self.last_text(t))
+        r, t, ctx = self.run_poll([callback(SUM)])
+        self.assertEqual(r["outcomes"][-1][1], "reask_unparsed"); self.assertEqual(botrepo.traced_reason(ctx), "callback_not_allowed"); self.assertNotIn("callback_not_allowed", self.last_text(t))
+        r, t, ctx = self.run_poll([msg(TOK["confirm"] + " " + SUM + " team", date=T0)])
+        self.assertEqual(r["outcomes"][-1][1], "reask_unparsed"); self.assertEqual(botrepo.traced_reason(ctx), "confirm_not_allowed"); self.assertNotIn("confirm_not_allowed", self.last_text(t))
         self.assertEqual(self.offset(), r["outcomes"][-1][0] + 1)
 
     def test_bad_arguments_reasons(self):
@@ -155,9 +155,9 @@ class SummaryTests(unittest.TestCase):
                  SUM + " team all 1": "summary_extra_arguments", SUM + " всё": "summary_bad_argument", SUM + " all team": "summary_extra_arguments",
                  SUM + " team x": "summary_bad_argument", SUM + " team\nвторая строка": "summary_multiline", SUM + " 1 2": "summary_extra_arguments"}
         for text, reason in cases.items():
-            r, t, _ = self.run_poll([msg(text, date=T0)])
+            r, t, ctx = self.run_poll([msg(text, date=T0)])
             self.assertEqual(r["outcomes"][-1][1], "reask_unparsed", text)
-            self.assertIn(reason, self.last_text(t), text)
+            self.assertEqual(botrepo.traced_reason(ctx), reason, text); self.assertNotIn(reason, self.last_text(t))
             self.assertLessEqual(len(self.last_text(t)), poll.SHORT_REPLY_MAX)
 
     def write_people_and_sheets(self, handles, months, cents_of):
@@ -249,9 +249,9 @@ class SummaryTests(unittest.TestCase):
     def test_period_out_of_range_is_reask_outcome(self):
         # T3 раунд 1 (astra, MINOR): календарь за пределами представимого — исход reask_unparsed с причиной, не summary_given
         early = -46000000000                                                  # ~ год 512
-        r, t, _ = self.run_poll([msg(SUM + " 9999", date=early)])
+        r, t, ctx = self.run_poll([msg(SUM + " 9999", date=early)])
         self.assertEqual(r["outcomes"][-1][1], "reask_unparsed")
-        self.assertIn("summary_period_out_of_range", self.last_text(t))
+        self.assertEqual(botrepo.traced_reason(ctx), "summary_period_out_of_range"); self.assertNotIn("summary_period_out_of_range", self.last_text(t))
         self.assertEqual(self.offset(), r["outcomes"][-1][0] + 1)             # переспрос — advance
 
     def test_io_error_is_tool_failure_hold_and_alarm(self):

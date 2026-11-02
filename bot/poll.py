@@ -41,7 +41,9 @@ UNDO_OUTCOMES = ("retracted", "unretracted")   # T8: пишущие исходы
 # D15: читающие позиции (литералы id — диспетчеризация, не копия реестра токенов; контракт D15 §4.2): вне скана
 # секретов (в репозиторий не пишут ни байта) и вне обёртки подтверждения (подтверждать нечего — confirm_wraps_only)
 READ_ONLY_POSITIONS = ("help", "last", "summary")
-SHORT_REPLY_MAX = 160                          # T8 (REQ-095): переспрос — одна строка не длиннее этого
+SHORT_REPLY_MAX = build_help.SHORT_REPLY_MAX   # T8 (REQ-095): переспрос — одна строка не длиннее этого (число — в build_help)
+# Q-01: ответ на справку при порченом реестре фраз — постоянная строка (реестр в этот момент — не источник доверия)
+HELP_REFUSED_TEXT = "справка временно недоступна: реестр подсказок бота повреждён, администратор уведомлён. Запись часов работает."
 TG_TEXT_MAX = 4096                             # предел одного сообщения мессенджера (Bot API); длиннее — частями
 
 
@@ -85,7 +87,7 @@ def _one_line(text):
 
 
 class Ctx(object):
-    def __init__(self, root, transport, cfg, validator_bin, mint_id=None, sleeper=None, bot_username=None):
+    def __init__(self, root, transport, cfg, validator_bin, mint_id=None, sleeper=None, bot_username=None, bot_id=None):
         self.root = root
         self.transport = transport
         self.cfg = cfg
@@ -93,11 +95,27 @@ class Ctx(object):
         self.mint_id = mint_id or comment_mod.uuid7_random   # id контейнера — СЛУЧАЙНЫЙ UUIDv7 (раскладка бит одна, в comment.py)
         self.sleeper = sleeper or (lambda s: __import__("time").sleep(s))
         self.bot_username = bot_username
+        self.bot_id = bot_id
         self.trace = commit_mod.Trace()
         self.log = []
         self.outgoing = []  # (chat_id, text) — для трассы/тестов; отправка — через transport
-        self.registry = parse_mod.Parser(os.path.join(_HERE, "kit", "commands.yaml"), bot_username)
+        self.registry = parse_mod.Parser(os.path.join(_HERE, "kit", "commands.yaml"), bot_username, bot_id=bot_id)
         self.commands_doc = yamlmini.load_file(os.path.join(_HERE, "kit", "commands.yaml"))
+        # §1А(б), R1-fix (B-01), Q-01 (решение alex 2026-09-26 — приём часов ИЗОЛИРОВАН от реестра фраз): ЦЕЛАЯ таблица
+        # фраз переспроса проверяется ДО первого update тем же валидатором, что у справки. Нарушение НЕ останавливает
+        # поллер: разбор, запись, коммит, offset — как обычно; справка отказывает (full_help), переспрос говорит только
+        # проверенными фразами, иначе проверенной заглушкой (последний рубеж — build_help.SAFE_REASK_FALLBACK); алярм с
+        # именем нарушения — один раз за прогон (reask_alarm), пометка — в трассе
+        # R3-fix (Q-01-01): фразы — ОТДЕЛЬНЫЙ реестр kit/reask-phrases.yaml, читаемый своей загрузкой (load_phrases не
+        # бросает): ни дубль ключа, ни плохой escape, ни незакрытая кавычка, ни отсутствие файла фраз не доходят до
+        # парсера команд выше и до main() — только нарушение, алярм и деградация справки/переспроса
+        # R4-fix (B-R4-01): загрузка не ЖДЁТ — open с O_NONBLOCK, тип по fstat открытого дескриптора (FIFO, устройство,
+        # каталог — нарушение без чтения), чтение ограничено пределом; до getUpdates нет ни одного блокирующего вызова фраз
+        self.phrases_path = os.path.join(_HERE, "kit", "reask-phrases.yaml")
+        self.reask, self.reask_violation = build_help.degraded_reask(self.commands_doc, self.forms_doc, phrases_path=self.phrases_path)
+        self.reask_alarmed = False
+        self.alarmed_keys = set()      # R3-fix: алярм по ключу — не чаще раза за прогон
+        self.alarm_people = None       # карта людей прогона (run_once) — адресаты алярмов из переспроса
         self.patterns = secrets_mod.load_patterns(yamlmini.load_file(os.path.join(_HERE, "kit", "secret-patterns.yaml")))
         self.people_path = os.path.join(root, ".workshop", "people.yaml")
 
@@ -128,10 +146,58 @@ class Ctx(object):
                 self.log.append("alarm недоставлен %s: %s" % (t, e))
 
     def short_help(self):
-        return build_help.render_short(self.commands_doc)
+        return build_help.render_short(self.commands_doc, self.forms_doc, self.phrases_path)
 
     def full_help(self):
-        return build_help.render_help(self.commands_doc, self.forms_doc)
+        """Полная справка — СТРОГИЙ путь: render_help сам проверяет таблицу фраз. Нарушение (Q-01) — отказ справки:
+        человеку — строка «справка временно недоступна», имя нарушения — в трассу и в алярм; прогон продолжается."""
+        try:
+            return build_help.render_help(self.commands_doc, self.forms_doc, self.phrases_path)
+        except build_help.RegistryViolation as e:
+            self.trace.add("help_refused", "reask_registry", 0, ",".join(e.names))
+            return HELP_REFUSED_TEXT
+
+    def reask_alarm(self, people):
+        """Алярм о порченом реестре фраз (Q-01) — тем же каналом, что собственные ошибки поллера, НЕ ЧАЩЕ одного раза
+        за прогон (не на каждое сообщение); с именами нарушений. Приём часов не останавливается. Частота — «каждый
+        прогон, пока дефект не исправлен» (решение alex 2026-09-26: троттлинга по периоду нет, состояние не хранится)."""
+        self.alarm_people = people
+        if self.reask_violation is None or self.reask_alarmed:
+            return
+        self.reask_alarmed = True
+        names = ",".join(self.reask_violation.names)
+        self.trace.add("reask_registry", "violation", self.reask_violation.rc, names)
+        self._alarm_once(("registry",), "реестр фраз переспроса нарушен [%s]: справка отказывает, переспрос — резервной фразой; "
+                         "приём часов продолжается. Почините kit/reask-phrases.yaml (build_help.py reasons покажет нарушения)." % names)
+
+    # нарушения ВСЕГО файла/корня фраз (R4-fix, M-R4-01): гасят алярм любой причины — таблицы нет целиком
+    _WHOLE_FILE_VIOLATIONS = ("reask.phrases_missing", "reask.phrases_empty", "reask.phrases_yaml", "reask.phrases_registry",
+                              "reask.phrases_not_regular", "reask.phrases_too_large", "reask.internal", "reask.node_missing",
+                              "reask.scan_error")
+
+    def _explained_by_registry(self, outcome, key):
+        """Отсутствие фразы уже названо алярмом реестра этого прогона. Адрес сравнивается по уровню (R4-fix, M-R4-01):
+        нарушение всего файла/корня — объясняет любую причину; нарушение ИСХОДА (место `reask_reasons.<исход>`:
+        исхода нет, таблица не отображение…) — только причины ЭТОГО исхода; нарушение фразы (`reask_reasons.<исход>.
+        <имя>`) — только эту причину. Нарушение другого исхода или другой причины алярм не гасит."""
+        v = self.reask_violation
+        if v is None:
+            return False
+        return any(n in self._WHOLE_FILE_VIOLATIONS or w == "reask_reasons.%s" % outcome
+                   or w == "reask_reasons.%s.%s" % (outcome, key) for n, w, _ in v.violations)
+
+    def _alarm_once(self, key, text):
+        """Алярм по ключу — не чаще одного раза за прогон; сбой самой отправки/чтения карты людей — в трассу и журнал,
+        прогон не останавливает (алярм — сигнал, не условие приёма)."""
+        if key in self.alarmed_keys:
+            return
+        self.alarmed_keys.add(key)
+        try:
+            people = self.alarm_people if self.alarm_people is not None else load_people(self)[0]
+            self.alarm(text, people)
+        except Exception as e:      # noqa: BLE001
+            self.trace.add("alarm_failed", "reask", 0, "%s: %s" % (type(e).__name__, str(e)[:120]))
+            self.log.append("алярм не отправлен (%s): %s" % (key, e))
 
     @property
     def forms_doc(self):
@@ -141,7 +207,26 @@ class Ctx(object):
 
     def help_hint(self):
         """Однострочный указатель на справку (T8, REQ-095): токен позиции справки — из реестра."""
-        return "%s — команды и примеры" % build_help.help_token(self.commands_doc)
+        return build_help.help_hint(self.commands_doc)
+
+    def reask_phrase(self, outcome, reason):
+        """Человеческая фраза причины переспроса (ЭРРАТА D10 «А», исходы 4 и 23) — из реестра `reask_reasons`;
+        машинное имя причины — ТОЛЬКО в трассу (имя до «:» — хвост причины бывает текстом человека и в журнал CI не
+        идёт). Таблица — ПРОВЕРЕННАЯ целиком (self.reask): порченый реестр сюда не доходит. Причина вне замкнутого
+        множества кода (путь, невидимый сборщику) — проверенная заглушка и ЯВНЫЙ сигнал: пометка в трассе и строка
+        журнала прогона; имя человеку не показывается ни в каком случае."""
+        phrase, found = self.reask.phrase(outcome, reason)
+        key = _one_line(build_help.reason_key(reason))[:60]
+        mark = " [встроенный резерв: заглушка реестра порчена]" if self.reask.builtin_fallback else ""
+        self.trace.add("reask_reason", outcome, 0, key if found else "%s (фразы нет в реестре — заглушка%s)" % (key, mark))
+        if not found:
+            self.log.append("переспрос %s: причина %r вне замкнутого множества кода — заглушка" % (outcome, key))
+            # R3-fix: причина от разбора/отзыва, которой нет в ПРОВЕРЕННОЙ таблице, — сигнал администратору с именем
+            # причины, один раз за прогон на причину (человеку — только заглушка)
+            if not self._explained_by_registry(outcome, key):
+                self._alarm_once(("reason", outcome, key), "переспрос %s: причина %s без проверенной фразы — человеку ушла "
+                                 "заглушка. Добавьте/почините фразу в kit/reask-phrases.yaml." % (outcome, key))
+        return phrase
 
 
 def load_people(ctx):
@@ -207,8 +292,10 @@ def reply_text(ctx, outcome, decision, parsed, extra=None):
             t += "\nпредупреждение валидатора: %s" % extra["rule"]
         return t + extra.get("note", "")
     # --- переспросы (T8, REQ-095): ОДНА строка ≤ SHORT_REPLY_MAX — причина + указатель на справку, без перечня команд
-    if outcome == "reask_unparsed":
-        return _short(["не понял (", (r.get("reason", ""), True), ")."], ctx.help_hint())
+    if outcome in build_help.REASK_PHRASE_OUTCOMES:
+        # ЭРРАТА D10 «А»: причина — человеческой фразой реестра (что не так и как написать), не машинным именем;
+        # форма ответа — build_help.reask_reply, та же, чью длину проверил валидатор (фиксированная: не режется)
+        return _short(build_help.reask_reply(ctx.reask_phrase(outcome, r.get("reason", "")), ctx.help_hint()))
     if outcome == "reask_invalid":
         return _short(["не записал: валидатор отверг строку — правило ", (extra.get("rule", r.get("rule", "")) or "", True), ". Поправь и пришли снова."], ctx.help_hint())
     if outcome == "reask_correction":
@@ -217,8 +304,6 @@ def reply_text(ctx, outcome, decision, parsed, extra=None):
         return _short(["учёт уже открыт: «", (r.get("title") or "", True), "» с %s. Закрыть — %s." % (r.get("started_at_local"), token_of(ctx, "stop"))], ctx.help_hint())
     if outcome == "reask_stop_without_open":
         return _short("открытого учёта нет.", ctx.help_hint())
-    if outcome == "reask_undo_not_found":
-        return _short(["нечего отзывать (", (r.get("reason", ""), True), ")."], ctx.help_hint())
     if outcome == "retracted":
         return "отозвано: %s · %s ч · «%s» — %s" % (r.get("date", ""), r.get("hours", ""), r.get("title", ""), _states_line())
     if outcome == "unretracted":
@@ -303,6 +388,7 @@ def run_once(ctx):
     bot_handle = ctx.cfg.get("bot_handle")
     if not identity_mod.bot_author_present(people, bot_handle):
         return _fatal(ctx, "tool_failure", "handle бота %r отсутствует в карте людей (W-AUTHOR-UNKNOWN)" % bot_handle, people)
+    ctx.reask_alarm(people)      # Q-01: порченый реестр фраз — алярм один раз за прогон; приём продолжается
     tr = ctx.cfg.get("transport") or {}
     # offset для getUpdates — от АВТОРИТЕТА (origin после fetch), не от локальной копии: незапушенный коммит
     # прошлого прогона (исчерпание ретраев) offset не подтверждает — его update придут снова и лягут по правилу Т
@@ -436,15 +522,19 @@ def _handle(ctx, u, state, sessions, people_doc, people, result):
     res = identity_mod.resolve(people, parsed["from_id"], parsed.get("from_name"), ctx.cfg)
     note = ""
     if res["kind"] == "rejected":
+        # адресовано: личка, команда, подтверждение, обращение `@бот` либо ответ (reply) на сообщение бота — тот же
+        # признак `addressed`, что у правила группы ниже (ЭРРАТА D10 «А», А6)
         addressed = parsed["chat_type"] == "private" or parsed.get("position") not in (None, "free_text") \
-            or parsed.get("wrapped_by") or parsed["text"][:1] == b"/"
+            or parsed.get("wrapped_by") or parsed["text"][:1] == b"/" or parsed.get("addressed")
         state = ss.record_rejection(state, parsed["from_id"], parsed.get("message_date") or 0)
         if addressed:
             ctx.say(chat_id, reply_text(ctx, "rejected_unknown_sender", None, parsed, {"from_id": parsed["from_id"]}), reply_to)
         return "rejected_unknown_sender", state, sessions, people_doc, people, False
     # T8 (REQ-095) ГРУППА: реплика не адресована боту, не команда и не разобрана → это не вход бота
     # (исход 9 non_input, запись в трассу, ответа нет). С privacy-mode такие update не приходят вовсе;
-    # при выключенном (бот-админ — вне поддержки) правило делает поведение одинаковым.
+    # при выключенном (бот-админ — вне поддержки) правило делает поведение одинаковым. Адресовано — обращение
+    # `@бот` ЛИБО ответ (reply) на сообщение бота [ЭРРАТА D10 «А», А6]: privacy-mode доставляет reply боту, и
+    # неразобранный reply получает переспрос (исход 4), а не тишину исхода 9.
     if parsed["chat_type"] != "private" and parsed["kind"] in ("unparsed", "correction") and not parsed.get("addressed") and parsed["text"][:1] != b"/":
         ctx.trace.add("non_input", "update:%s" % uid, 0, "группа: не адресовано боту (%s)" % parsed.get("reason"))
         return "non_input", state, sessions, people_doc, people, False
@@ -807,14 +897,17 @@ def _revert(root, paths, ctx):
 # не попадает, переживает циклы демона). Консервативно (алярм сразу): нет отметки, порча, нечисловое/нефинитное/вне
 # диапазона/будущее время, отметку не удалось обновить, любой сбой самого решения, непонятный ответ протокола, 4xx кроме
 # 429, любое не-транспортное исключение. CI-форма (свежий прогон без отметки) — как раньше: алярм сразу.
+# Целевая форма (DECISION D19 M5 2026-10-17, слово alex 2026-10-18 «ок»): ОБА окна по 600 с и НЕТ верхней границы давности
+# last_seen. Основания подавления — только last_ok (успех) и alarmed_at (доставленный алярм); оба записаны не позже любого
+# неучтённого успеха S (удачный цикл, не сумевший ни записать, ни удалить отметку — Codex R2-01/R3-01), поэтому к S + 600
+# истекают: тишина новой аварии ≤ 600 с + один цикл при ЛЮБОМ отказе записи. Порога непрерывности нет — длинный
+# http_timeout/backoff/пауза заказчика подавление не выключают (Codex R3-02). Цена: при долгой аварии повтор раз в ~10 мин;
+# неучтённый успех может дать ранний алярм (консервативно). Свойство опирается на последовательного писателя отметки.
 TRANSPORT_ALARM_AFTER_S = 600
-TRANSPORT_REALARM_EVERY_S = 3600
+TRANSPORT_REALARM_EVERY_S = 600
 TRANSPORT_MARK = os.path.join(".workshop-bin", "poller-transport.json")
-# Непрерывность: подавление опирается на ЦЕПОЧКУ циклов, каждый из которых обновил отметку (last_seen). Разрыв больше
-# TRANSPORT_CONTINUITY_S (демон после сбоя ждёт WORKSHOP_DAEMON_FAILURE_BACKOFF_SECONDS, умолчание 60) значит, что был
-# неучтённый цикл (например, удачный, не сумевший записать отметку) — подавлению не доверяем (Codex R2-01). Пауза
-# заказчика больше порога — подавление не включается вовсе: алярм сразу, как до M5.
-TRANSPORT_CONTINUITY_S = 300
+# last_seen — последний цикл, обновивший отметку: диагностика и проверка целостности (не раньше last_ok, не из будущего);
+# основанием подавления НЕ служит и сроков не продлевает.
 _MARK_TS_MAX = 1e11                       # ~ 5138 год: всё больше — порча, не время
 _now = time.time
 
@@ -882,7 +975,8 @@ def _write_mark(root, last_ok, alarmed_at=None, last_seen=None):
 
 def _mark_success(root, now):
     """Удачный цикл: отметка = now, подавление сброшено. Не записалась — убрать старую (иначе её подавление переживёт
-    восстановление); не убралась — следующее решение всё равно алармит: оно требует успешной записи отметки."""
+    восстановление). Не убралась (двойной отказ, Codex R2-01/R3-01) — сброс НЕ гарантирован: старые основания подавления
+    (last_ok, alarmed_at) не позже этого успеха и истекают через окно 600 с — граница тишины новой аварии ≤ 600 с + цикл."""
     if not _write_mark(root, now):
         try:
             os.remove(os.path.join(root, TRANSPORT_MARK))
@@ -897,8 +991,8 @@ def _transport_alarm_decision(root, now):
         if m is None:
             return True, ""
         age = now - m["last_ok"]
-        if age < 0 or not (0 <= now - m["last_seen"] <= TRANSPORT_CONTINUITY_S):
-            return True, ""               # отметка из будущего или цепочка циклов прервана — не доверяем
+        if age < 0 or now - m["last_seen"] < 0:
+            return True, ""               # отметка из будущего — не доверяем (верхней границы давности last_seen нет)
         al = m["alarmed_at"]
         if al is not None and not (m["last_ok"] <= al <= now):
             return True, ""               # окно повтора вне [last_ok, now] — порча, не доверяем
@@ -922,6 +1016,16 @@ def _mark_alarmed(root, now):
     m = _read_mark(root)
     if m is not None:
         _write_mark(root, m["last_ok"], now, now)
+
+
+def _mark_safely(fn, root, now):
+    """Учёт отметки (успех, доставленный алярм) не роняет поллер и не меняет rc: любой сбой — строка журнала. Следствие
+    консервативно: не открытое окно повтора — следующий отказ алармит; не сброшенная отметка — её основания истекают
+    через 600 с."""
+    try:
+        fn(root, now)
+    except Exception as e:                # noqa: BLE001 — аварийный контур и итог прогона важнее учёта отметки
+        sys.stdout.write("transport-mark: сбой учёта (%s) — пропущено\n" % type(e).__name__)
 
 
 def _emergency_alarm(transport, cfg, people, text):
@@ -967,7 +1071,7 @@ def main():
         except Exception:
             people = []           # карты нет/порчена — алярм пойдёт по явному адресату, если он есть
         me = transport.call("getMe", {})
-        ctx = Ctx(root, transport, cfg, validator_bin, bot_username=me.get("username"))
+        ctx = Ctx(root, transport, cfg, validator_bin, bot_username=me.get("username"), bot_id=me.get("id"))
         result = run_once(ctx)
     except Exception as e:
         sys.stdout.write("TOOL_FAILURE %s: %s\n" % (type(e).__name__, e))
@@ -977,9 +1081,9 @@ def main():
             if alarm:
                 n = _emergency_alarm(transport, cfg, people, "сбой поллера (%s): %s%s" % (type(e).__name__, str(e)[:200], suffix))
                 if transient and n:
-                    _mark_alarmed(root, _now())
+                    _mark_safely(_mark_alarmed, root, _now())
         return 10
-    _mark_success(root, _now())
+    _mark_safely(_mark_success, root, _now())
     sys.stdout.write("\n".join(ctx.trace.lines()) + "\n")
     sys.stdout.write("processed=%d outcomes=%s held=%s\n" % (result["processed"], result["outcomes"], result["held"]))
     return 2 if result["held"] else 0

@@ -1,0 +1,68 @@
+# РЕЕСТР СНИМАЕМЫХ И ЗАМЕНЯЕМЫХ ФАЙЛОВ ЗАКАЗЧИКА — вход build_manifest.py (проекция в kit/manifest.yaml: retire,
+# supersedes). Владелец — T3 D10. У заказчика не ставится (инструмент сборки манифеста).
+# SHA retire с origin: customer_live и все supersedes сняты с живого репозитория заказчика (HEAD cab5bd5, 2026-09-24) —
+# сверка режимом сверки: harness/bot_kit_install.sh (CUSTOMER_REPO=<клон заказчика>) сравнивает каждую такую пару
+# «путь + sha256» с живым файлом; retire с origin: kit_output сверяется с байтами origin_ref (git show).
+#
+# retire — файл снимается install.py layout, ТОЛЬКО если его sha256 == ожидаемому (печать диффа снятия); иной sha256 —
+#   локальная правка заказчика: ИМЕНОВАННЫЙ конфликт (путь, ожидаемый и фактический SHA), файл не трогается.
+#   Замена — РОВНО одно из двух полей (в манифест не идут): replaced_by_profile — id профиля, назначение читается
+#   build_manifest.py из profiles/profiles.yaml (единственный адрес назначений профилей; второй таблицы путей нет);
+#   replaced_by — путь назначения манифеста, не являющегося профилем. Без замены в манифесте retire не проецируется
+#   (снимать инструкцию, не положив новую, установщик не должен).
+#   origin — откуда отпечаток: customer_live — снят с живого репозитория заказчика (сверка CUSTOMER_REPO в
+#   harness/bot_kit_install.sh); kit_output — байты выхода генератора на ревизии origin_ref «<ревизия>:<путь>» монорепо
+#   (сверка там же через git show). Кроме этого отпечатка install.py layout принимает отпечаток последней раскладки
+#   этого пути комплектом (kit-version.yaml managed) — так снимается любая выданная версия профиля, а правка
+#   заказчика остаётся конфликтом.
+# Каталог профилей переехал .workshop/ai/ → .workshop-ai/ (решение alex 2026-10-03, REQ-121; D02 «Комплект» п. 7):
+#   прежние назначения четырёх профилей — retire с заменой тем же профилем на новом месте.
+# supersedes — известное прежнее содержимое УПРАВЛЯЕМОГО назначения (роль managed), которое layout вправе перезаписать
+#   (с диффом); иное содержимое, кроме последнего разложенного комплектом, — именованный конфликт.
+schema_version: 1
+registry: kit_retire
+retire:
+  - path: .workshop/ai/workshop-hours-v0.md
+    sha256: 39d6cedc3db6e80523dba806fb957b5c3f06044dd5821e2c18cc4c5e02599666
+    replaced_by_profile: hours
+    origin: customer_live
+    reason: "профиль «часы» v0, написанный рукой, — заменён генерируемым профилем с «Для человека»"
+  - path: .workshop/ai/workshop-paste-v0.md
+    sha256: 9a43018d2ad4d1352c952e0632841b9571c5dc26604bb95ee94e7be48ce9a9c4
+    replaced_by_profile: full
+    origin: customer_live
+    reason: "вставляемый артефакт формата v0 (конкатенация спеки) — заменён генерируемым профилем «полный»"
+  - path: .workshop/ai/recipe.md
+    sha256: 2562f8f40bf6efdbfb5fb103325a8924c39d34641e2b925829c793b402f6a5bb
+    replaced_by_profile: hours
+    origin: customer_live
+    reason: "рецепт подрядчика v0 — заменён «Для человека» в профиле «часы» и слоем заказчика standing"
+  - path: .workshop/ai/workshop-hours.md
+    sha256: 389db8f303dab7bb94673b5aafc5a75e9a98005c3bec2cdf6ee5b159617063dc
+    replaced_by_profile: hours
+    origin: kit_output
+    origin_ref: "4574eb1:profiles/out/.workshop/ai/workshop-hours.md"
+    reason: "прежнее место профиля (до переезда в .workshop-ai/) — снимается, если байты равны последней раскладке комплекта или выходу генератора origin_ref"
+  - path: .workshop/ai/workshop-tickets.md
+    sha256: 52091c77e6f839616923b64d5c02e24c447551cba1bc22a83a182fa25ec3ec48
+    replaced_by_profile: tickets
+    origin: kit_output
+    origin_ref: "4574eb1:profiles/out/.workshop/ai/workshop-tickets.md"
+    reason: "прежнее место профиля (до переезда в .workshop-ai/) — снимается, если байты равны последней раскладке комплекта или выходу генератора origin_ref"
+  - path: .workshop/ai/workshop-docs.md
+    sha256: 3abef0bbeb65fe066c0199e504fb810bb5b9c3f14eb96737fb772b850da48d5f
+    replaced_by_profile: docs
+    origin: kit_output
+    origin_ref: "4574eb1:profiles/out/.workshop/ai/workshop-docs.md"
+    reason: "прежнее место профиля (до переезда в .workshop-ai/) — снимается, если байты равны последней раскладке комплекта или выходу генератора origin_ref"
+  - path: .workshop/ai/workshop-full.md
+    sha256: d9d5dbd8faed45c422b5a671ac18208677da3824efafe3870da4f78837a0fd74
+    replaced_by_profile: full
+    origin: kit_output
+    origin_ref: "4574eb1:profiles/out/.workshop/ai/workshop-full.md"
+    reason: "прежнее место профиля (до переезда в .workshop-ai/) — снимается, если байты равны последней раскладке комплекта или выходу генератора origin_ref"
+supersedes:
+  - path: AGENTS.md
+    sha256: a57f219bde838753aaa8fb78496ac58fad363dc39ecf9d92596a701927cce570
+  - path: CLAUDE.md
+    sha256: a57f219bde838753aaa8fb78496ac58fad363dc39ecf9d92596a701927cce570

@@ -9,8 +9,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import gitquiet  # noqa: E402,F401 — автообслуживание git выключено (флейк maintenance.lock)
 
 _BOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ROOT = os.path.dirname(_BOT)
@@ -911,6 +909,98 @@ class ValidatorVerifyTests(unittest.TestCase):
         rc, out = self.k.install(self.tmp, "validator", "--path", self.binary)
         self.assertEqual(rc, 2)
         self.assertTrue("не является дайджестом" in out or "НЕ СОВПАЛ" in out, out)
+
+
+class ValidatorVersionByManifestTests(unittest.TestCase):
+    """D10 T23 (валидатор 0.3.0): релиз манифеста с interface_version сверяется ИСПОЛНЕНИЕМ — шапка отчёта бинаря
+    обязана назвать ту же версию и интерфейс. Матрица: совпадение; подмена версии; подмена интерфейса; шапки нет и цель
+    ≠ хост — заметка, не отказ; цель хоста и неисполнимый бинарь — отказ; релиз без interface_version — не исполняется
+    (обратный контроль: выпущенные 0.2.x и прежние фейки не ломаются)."""
+
+    def setUp(self):
+        self.k = _Kit()
+        self.tmp = tempfile.mkdtemp(prefix="valv-")
+
+    def tearDown(self):
+        self.k.cleanup()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _fake(self, header):
+        p = os.path.join(self.tmp, "fake-validator")
+        with open(p, "wb") as fh:
+            fh.write(("#!/bin/sh\necho 'PRECONDITION: путь не подан'\necho '%s'\nexit 2\n" % header).encode("utf-8")
+                     if header is not None else b"\x7fELF-not-really" + os.urandom(32))
+        return p
+
+    def _release(self, binary, version="0.3.0", iv="2"):
+        p = os.path.join(self.tmp, "validator-release.yaml")
+        ivl = ("    interface_version: %s\n" % iv) if iv is not None else ""
+        with open(p, "w", encoding="utf-8") as fh:
+            fh.write("schema_version: 1\npinned_version: \"%s\"\nreleases:\n  - version: \"%s\"\n%s    artifacts:\n"
+                     "      - target: %s\n        path: fake-validator\n        sha256: \"%s\"\n        purpose: p\n"
+                     % (version, version, ivl, self.target, sha(binary)))
+        return p
+
+    target = "t1"
+
+    def _install(self, rel):
+        dest = os.path.join(self.tmp, "out-bin")
+        rc, out = self.k.install(self.tmp, "validator", "--release", rel, "--target", self.target, "--dest", dest)
+        return rc, out, dest
+
+    def test_header_matches_manifest(self):
+        b = self._fake("-- interface_version: 2; validator: 0.3.0; kernel_schema: 2; types_config_schema: 2; tzdata: 2025b")
+        rc, out, dest = self._install(self._release(b))
+        self.assertEqual(rc, 0, out)
+        self.assertIn("сверены по шапке", out)
+        self.assertTrue(os.access(dest, os.X_OK))
+
+    def test_mislabeled_version_refused_before_write(self):
+        b = self._fake("-- interface_version: 2; validator: 0.2.1; kernel_schema: 2; types_config_schema: 2; tzdata: 2025b")
+        rc, out, dest = self._install(self._release(b))
+        self.assertEqual(rc, 2, out)
+        self.assertIn("разметка релиза расходится", out)
+        self.assertFalse(os.path.exists(dest))
+
+    def test_interface_mismatch_refused(self):
+        b = self._fake("-- interface_version: 1; validator: 0.3.0; tzdata: 2025b")
+        rc, out, dest = self._install(self._release(b))
+        self.assertEqual(rc, 2, out)
+        self.assertIn("interface_version 1", out)
+        self.assertFalse(os.path.exists(dest))
+
+    def test_same_length_version_substitution_refused(self):
+        b = self._fake("-- interface_version: 2; validator: 0.3.1; kernel_schema: 2; types_config_schema: 2; tzdata: 2025b")
+        rc, out, dest = self._install(self._release(b))
+        self.assertEqual(rc, 2, out)
+
+    def test_no_header_foreign_target_is_named_note(self):
+        b = self._fake("нет шапки")
+        rc, out, dest = self._install(self._release(b))
+        self.assertEqual(rc, 0, out)
+        self.assertIn("не сверена исполнением", out)
+
+    def test_unexecutable_on_host_target_refused(self):
+        sys.path.insert(0, self.k.kit)
+        try:
+            import importlib
+            inst = importlib.import_module("install")
+            host = inst.host_target()
+        finally:
+            sys.path.pop(0)
+        self.target = host
+        b = self._fake(None)
+        rc, out, dest = self._install(self._release(b))
+        self.assertEqual(rc, 2, out)
+        self.assertIn("версию по манифесту сверить нельзя", out)
+        self.assertFalse(os.path.exists(dest))
+
+    def test_release_without_interface_version_not_executed(self):
+        b = self._fake(None)
+        rc, out, dest = self._install(self._release(b, version="0.2.1", iv=None))
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("сверены по шапке", out)
+        self.assertNotIn("не сверена", out)
 
 
 class ManifestAndExportTests(unittest.TestCase):

@@ -14,12 +14,58 @@
 schema_version: 1
 kit:
   repository: alexCherryPick/workshop-kit
-  ref: 57836dde8b4013453e6e4dde1e685a8352f6ae7d
+  ref: 099cee0f09c00ad4043fbbd6a9de3a835ed84b63
   channel: public
   note: "канал выдачи — ОТДЕЛЬНЫЙ публичный репозиторий комплекта workshop-kit (вердикт alex 2в, 2026-09-08): зеркало bot/ из закрытого монорепо + релизы валидатора; kit.ref — SHA коммита ЗЕРКАЛА; клиентская копия bootstrap.yml с пинами — ассет релиза (витрина сайта)"
-pinned_version: "0.1.0"
+pinned_version: "0.3.0"
 fallback: "сборка из исходников: cargo build --release в validator/ среза kit.ref; объявленный запасной ход для прогонов, не импровизация установщика (install.py validator --path)"
 releases:
+  - version: "0.3.0"
+    interface_version: 2
+    source_commit: 76ffd1ef5b598078e2224c4d2db61d03b1753103
+    note: "сборка .github/workflows/validator-release.yml (workflow_dispatch, run 38891252787, self-hosted mini-workshop) на main 76ffd1e: ядро v2, interface_version 2 — несовместимый переход (REQ-123 v14); манифест выпуска validator/release-manifest.yaml (status released): darwin-артефакт = binary.local_build — байты, на которых исполнена батарея выпуска; linux — смоук шапки; GitHub Release validator-v0.3.0 в монорепо 2026-10-16T11:05:32Z; публикация в workshop-kit — с выдачей. install.py сверяет у этого релиза ещё и шапку бинаря (validator 0.3.0, interface_version 2)."
+    build_env:   # сборочная среда выпуска = env .github/workflows/validator-release.yml (M6, alex 2026-10-13: self-hosted раннер — минуты GitHub Actions исчерпаны); сверка — harness/release_manifest.py
+      runner: mini-workshop
+      image: "rust:1-bookworm@sha256:114c7a4425406451c2866b6aafe69fe29b1b298832db1277d411ac73c82d04d6"
+      smoke_image: "debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587"
+      rustc_aarch64_apple_darwin: "1.98.1"
+      rustc_commit_aarch64_apple_darwin: "48a229ceaefd4985c50990b14116b6d856af0985"
+      rustc_x86_64_unknown_linux_gnu: "1.99.0"
+      host_requirement_x86_64_unknown_linux_gnu: "glibc >= 2.34"
+      cross_apt: "gcc-x86-64-linux-gnu"
+    artifacts:
+      - target: x86_64-unknown-linux-gnu
+        url: "https://github.com/alexCherryPick/workshop-kit/releases/download/validator-v0.3.0/workshop-validator-x86_64-unknown-linux-gnu"
+        sha256: "1afd5c53ce9c5a41e65b699f9d94b518333b5a0a88fc4b7870ae0901acea1001"
+        purpose: "бинарь валидатора для CI заказчика (носитель-бинарь D05): check-line/check-pair до коммита, check-corpus в reconciler; кладётся в .workshop-bin/"
+      - target: aarch64-apple-darwin
+        url: "https://github.com/alexCherryPick/workshop-kit/releases/download/validator-v0.3.0/workshop-validator-aarch64-apple-darwin"
+        sha256: "4b92fd4841b9d883b744ced11a91800dd0eef83ad7fb7aff00885c868326e15f"
+        purpose: "тот же бинарь для локальных прогонов харнесса на macOS"
+  - version: "0.2.1"
+    source_commit: 688c67da61b9163c890241a7604ba01520ca91cb
+    note: "сборка .github/workflows/validator-release.yml (workflow_dispatch, run 37183196805) на main 688c67d (cargo test в релизной сборке): класс записи расширения из эффективного конфига (TASK/REQUEST из types.yaml — члены EPIC), check-corpus пропускает .workshop-ai, общие поля контейнера из line-forms.yaml, shadow_rule; известный предел — status_set (validator/CHANGELOG.md); GitHub Release validator-v0.2.1 в монорепо — слово alex 2026-10-04; публикация в workshop-kit — с выдачей"
+    artifacts:
+      - target: x86_64-unknown-linux-gnu
+        url: "https://github.com/alexCherryPick/workshop-kit/releases/download/validator-v0.2.1/workshop-validator-x86_64-unknown-linux-gnu"
+        sha256: "85d7ead182ed5480449098faa6654b581a0f87d2bd4c02a7885d3f81f3493df5"
+        purpose: "бинарь валидатора для CI заказчика (носитель-бинарь D05): check-line/check-pair до коммита, check-corpus в reconciler; кладётся в .workshop-bin/workshop-validator репозитория заказчика (каталог самоигнорируемый, в коммит не попадает)"
+      - target: aarch64-apple-darwin
+        url: "https://github.com/alexCherryPick/workshop-kit/releases/download/validator-v0.2.1/workshop-validator-aarch64-apple-darwin"
+        sha256: "d43f6ec6aa6a244b58b5b18e2e0f10d9f43e6c7b040782a668ff7f6e18477f7a"
+        purpose: "тот же бинарь для локальных прогонов харнесса на macOS"
+  - version: "0.2.0"
+    source_commit: 6ce0ae15c781a2b3482e5ea589aecafb1013d432
+    note: "сборка .github/workflows/validator-release.yml (workflow_dispatch, run 36308710858) на срезе 6ce0ae1 (cargo test в релизной сборке): T8 validator-assignee (REQ-109, D09-01, T8-3); GitHub Release validator-v0.2.0 в монорепо — слово alex 2026-09-27; публикация в workshop-kit — T7 (зеркало)"
+    artifacts:
+      - target: x86_64-unknown-linux-gnu
+        url: "https://github.com/alexCherryPick/workshop-kit/releases/download/validator-v0.2.0/workshop-validator-x86_64-unknown-linux-gnu"
+        sha256: "2a6aed72977390e7551d5b88f2e39d7ee9a1280bb8f8664aa4fa638fcb3a45ad"
+        purpose: "бинарь валидатора для CI заказчика (носитель-бинарь D05): check-line/check-pair до коммита, check-corpus в reconciler; кладётся в .workshop-bin/workshop-validator репозитория заказчика (каталог самоигнорируемый, в коммит не попадает)"
+      - target: aarch64-apple-darwin
+        url: "https://github.com/alexCherryPick/workshop-kit/releases/download/validator-v0.2.0/workshop-validator-aarch64-apple-darwin"
+        sha256: "06ba0f4fda3db46f5a9f41cd128da1c8f4cc82370ebae1b873d2899e04b211e9"
+        purpose: "тот же бинарь для локальных прогонов харнесса на macOS"
   - version: "0.1.0"
     source_commit: 0bebf9b5145b8e0b73dce8acf4dc554521e0ee5d
     note: "сборка .github/workflows/validator-release.yml на срезе 0bebf9b5145b (cargo test в релизной сборке); GitHub Release validator-v0.1.0 — вердикт alex 4а"

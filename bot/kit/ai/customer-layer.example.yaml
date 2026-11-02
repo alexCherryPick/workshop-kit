@@ -1,0 +1,35 @@
+# ОБРАЗЕЦ слоя заказчика для шаблонов инструкций агента (bot/kit/ai/*.tmpl, profiles/human/*.md): значения
+# плейсхолдеров {{customer: <ключ>}}. Значения СИНТЕТИЧЕСКИЕ: комплект нейтрален к заказчику (гейт G-PROVIDER), данных
+# конкретного заказчика здесь нет и быть не может.
+# Дом настоящего слоя — репозиторий заказчика: `.workshop-ai/customer-layer.yaml`, рядом с профилями (раскладка
+# `.workshop-ai/`). Заказчик копирует этот файл туда и вписывает свои значения; профили собираются под его слой:
+#   python3 profiles/build_profile.py --spec-root spec --customer-layer <клон>/.workshop-ai/customer-layer.yaml …
+# а `install.py layout` сверяет, что разложенные инструкции собраны именно под слой клона (манифест, `customer_layer`).
+# Ключи этого образца — закрытый набор: неизвестный или пустой ключ в шаблоне — отказ сборки с именем плейсхолдера.
+# Форма: только верхние ключи-скаляры; подмножество YAML — глава 00 §9.4 (скаляр plain или в двойных кавычках,
+# экранирование только \" и \\; комментарии — целые строки; UTF-8, LF, ровно один финальный LF). Без PII: ни имён,
+# ни handle людей.
+schema_version: 1
+# Полное имя репозитория трекера на хостинге — remote origin клона.
+repo: "example-org/example-tracker"
+# Имя проекта заказчика.
+project: "Example"
+# Git-хостинг заказчика (как его называют люди).
+forge: "ExampleForge"
+# Как агенту узнать логин человека на хостинге.
+forge_login_cmd: "forge-cli whoami"
+# Клонирование — URL remote origin.
+clone_cmd: "git clone https://forge.example/example-org/example-tracker.git"
+# Где человек видит отправленные коммиты — хостинг + ветка по умолчанию.
+commits_url: "https://forge.example/example-org/example-tracker/commits/main"
+# Бот и мессенджер заказчика.
+bot: "@example_tracker_bot"
+messenger: "Telegram"
+# ИИ-агенты, которыми пользуются подрядчики заказчика.
+ai_tools: "Claude Code или Codex"
+# Бинарь валидатора в клоне и его установка (каталог самоигнорируемый, в коммит не идёт); validator_bin == узлу
+# validator_dest реестра бота (G-PROVIDER).
+validator_bin: ".workshop-bin/workshop-validator"
+validator_install: "python3 .workshop/bot/kit/install.py validator"
+# Кому передать находку о формате. Роль, не человек.
+contact: "администратору трекера (роль `admin` в `.workshop/people.yaml`)"

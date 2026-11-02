@@ -170,7 +170,9 @@ def _cancel_session(ctx, root, ref, handle, rec, session_age, cancel_min, hb, ad
     tpl = track_template(rec)
     how = "Запиши реальное время одной строкой (подставь конец)"
     if isinstance(chat, int) and chat < 0 and not tpl.startswith(_track_token()):
-        how += " — в группе ответом на это сообщение или с обращением к боту, иначе бот строку не увидит"   # privacy-mode (раунд 2 W4)
+        # privacy-mode (раунд 2 W4; ЭРРАТА D10 «А», А5): в группе до бота доходят только команды и ответы (reply) на его
+        # сообщения — свободный текст с обращением `@бот` не доставляется, поэтому путь один: ответ на это сообщение
+        how += " — в группе ответом на это сообщение, иначе бот строку не увидит"
     text = "⚠ учёт «%s» открыт с %s — дольше %s и не закрыт: отменён, ничего не записано. %s:\n%s" % (
         rec.get("title", ""), rec.get("started_at_local", rec.get("started_at")), _minutes_human(cancel_min), how, tpl)
     key = "%s@%s" % (handle, rec.get("started_at", 0))   # ключ долга — сессия, не человек (раунд 2 W6)

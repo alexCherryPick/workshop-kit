@@ -1,0 +1,1068 @@
+{
+ "$comment": "JSON Schema (draft 2020-12, подмножество ключевых слов). СГЕНЕРИРОВАНО attach.contract.build_schema из реестров нормы spec/03-spec-type-schemas/attachments.yaml (sha256 2162e2f2cafb081c3fd604890309d63351c7b2a32c12616ac29ce70f6f256181) — не править руками.",
+ "$defs": {
+  "cmd_adapter_fault": {
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "enum": [
+        "route",
+        "write",
+        "read",
+        "verify",
+        "classify",
+        "fail-pending",
+        "complete-pending",
+        "late-save",
+        "withdraw",
+        "withdraw-key-set",
+        "key-paths",
+        "probe",
+        "status"
+       ]
+      }
+     ]
+    },
+    "error": {
+     "type": "string"
+    },
+    "outcome": {
+     "const": "adapter-fault"
+    },
+    "output_schema_version": {
+     "const": 1
+    }
+   },
+   "required": [
+    "command",
+    "error",
+    "outcome",
+    "output_schema_version"
+   ],
+   "type": "object"
+  },
+  "cmd_classify": {
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "const": "classify"
+    },
+    "defect": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    },
+    "kind": {
+     "enum": [
+      "bytes",
+      "pointer",
+      "pointer-invalid",
+      "pointer-version-unknown",
+      "lfs"
+     ]
+    },
+    "outcome": {
+     "type": "null"
+    },
+    "output_schema_version": {
+     "const": 1
+    },
+    "state": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/state"
+      }
+     ]
+    },
+    "version": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    }
+   },
+   "required": [
+    "command",
+    "defect",
+    "kind",
+    "outcome",
+    "output_schema_version",
+    "state",
+    "version"
+   ],
+   "type": "object"
+  },
+  "cmd_input_error": {
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "enum": [
+        "route",
+        "write",
+        "read",
+        "verify",
+        "classify",
+        "fail-pending",
+        "complete-pending",
+        "late-save",
+        "withdraw",
+        "withdraw-key-set",
+        "key-paths",
+        "probe",
+        "status"
+       ]
+      }
+     ]
+    },
+    "detail": {
+     "type": "string"
+    },
+    "error": {
+     "const": "input"
+    },
+    "outcome": {
+     "type": "null"
+    },
+    "output_schema_version": {
+     "const": 1
+    }
+   },
+   "required": [
+    "command",
+    "detail",
+    "error",
+    "outcome",
+    "output_schema_version"
+   ],
+   "type": "object"
+  },
+  "cmd_key_paths": {
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "const": "key-paths"
+    },
+    "key": {
+     "type": "string"
+    },
+    "outcome": {
+     "type": "null"
+    },
+    "output_schema_version": {
+     "const": 1
+    },
+    "paths": {
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    },
+    "unsaved_same_sha256": {
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    }
+   },
+   "required": [
+    "command",
+    "key",
+    "outcome",
+    "output_schema_version",
+    "paths",
+    "unsaved_same_sha256"
+   ],
+   "type": "object"
+  },
+  "cmd_probe": {
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "const": "probe"
+    },
+    "detail": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    },
+    "outcome": {
+     "type": "null"
+    },
+    "output_schema_version": {
+     "const": 1
+    },
+    "storage_configured": {
+     "type": "boolean"
+    },
+    "storage_probe_outcome": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/probe_outcome"
+      }
+     ]
+    }
+   },
+   "required": [
+    "command",
+    "detail",
+    "outcome",
+    "output_schema_version",
+    "storage_configured",
+    "storage_probe_outcome"
+   ],
+   "type": "object"
+  },
+  "cmd_read_result": {
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "enum": [
+      "read",
+      "verify"
+     ]
+    },
+    "detail": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    },
+    "outcome": {
+     "$ref": "#/$defs/read_outcome"
+    },
+    "output_schema_version": {
+     "const": 1
+    },
+    "reason": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/reason"
+      }
+     ]
+    },
+    "size": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "minimum": 0,
+       "type": "integer"
+      }
+     ]
+    },
+    "source": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    },
+    "state": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/state"
+      }
+     ]
+    }
+   },
+   "required": [
+    "command",
+    "detail",
+    "outcome",
+    "output_schema_version",
+    "reason",
+    "size",
+    "source",
+    "state"
+   ],
+   "type": "object"
+  },
+  "cmd_route": {
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "const": "route"
+    },
+    "outcome": {
+     "type": "null"
+    },
+    "output_schema_version": {
+     "const": 1
+    },
+    "reason": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/reason"
+      }
+     ]
+    },
+    "step": {
+     "minimum": 0,
+     "type": "integer"
+    },
+    "target": {
+     "$ref": "#/$defs/route_target"
+    }
+   },
+   "required": [
+    "command",
+    "outcome",
+    "output_schema_version",
+    "reason",
+    "step",
+    "target"
+   ],
+   "type": "object"
+  },
+  "cmd_status": {
+   "additionalProperties": false,
+   "properties": {
+    "bytes_in_git": {
+     "minimum": 0,
+     "type": "integer"
+    },
+    "command": {
+     "const": "status"
+    },
+    "last_verification_failures": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "items": {
+        "additionalProperties": false,
+        "properties": {
+         "outcome": {
+          "$ref": "#/$defs/verification_failure"
+         },
+         "path": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "outcome",
+         "path"
+        ],
+        "type": "object"
+       },
+       "type": "array"
+      }
+     ]
+    },
+    "non_regular": {
+     "minimum": 0,
+     "type": "integer"
+    },
+    "not_judged": {
+     "additionalProperties": false,
+     "properties": {
+      "lfs-unsupported": {
+       "minimum": 0,
+       "type": "integer"
+      },
+      "pointer-invalid": {
+       "minimum": 0,
+       "type": "integer"
+      },
+      "pointer-version-unknown": {
+       "minimum": 0,
+       "type": "integer"
+      }
+     },
+     "required": [
+      "lfs-unsupported",
+      "pointer-invalid",
+      "pointer-version-unknown"
+     ],
+     "type": "object"
+    },
+    "outcome": {
+     "type": "null"
+    },
+    "output_schema_version": {
+     "const": 1
+    },
+    "pointers_by_state": {
+     "additionalProperties": false,
+     "properties": {
+      "pending": {
+       "minimum": 0,
+       "type": "integer"
+      },
+      "stored": {
+       "minimum": 0,
+       "type": "integer"
+      },
+      "unsaved": {
+       "minimum": 0,
+       "type": "integer"
+      },
+      "withdrawn": {
+       "minimum": 0,
+       "type": "integer"
+      }
+     },
+     "required": [
+      "pending",
+      "stored",
+      "unsaved",
+      "withdrawn"
+     ],
+     "type": "object"
+    },
+    "probe_detail": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    },
+    "storage_configured": {
+     "type": "boolean"
+    },
+    "storage_probe_outcome": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/probe_outcome"
+      }
+     ]
+    },
+    "verification": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "additionalProperties": false,
+       "properties": {
+        "checked": {
+         "minimum": 0,
+         "type": "integer"
+        },
+        "input_errors": {
+         "minimum": 0,
+         "type": "integer"
+        },
+        "outcomes": {
+         "additionalProperties": false,
+         "properties": {
+          "in-git": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "lfs-unsupported": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "not-stored": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "object-missing": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "ok": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "pending-upload": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "pointer-invalid": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "pointer-version-unknown": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "sha-mismatch": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "size-mismatch": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "storage-denied": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "storage-not-configured": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "storage-unavailable": {
+           "minimum": 0,
+           "type": "integer"
+          },
+          "withdrawn": {
+           "minimum": 0,
+           "type": "integer"
+          }
+         },
+         "required": [],
+         "type": "object"
+        },
+        "truncated": {
+         "type": "boolean"
+        }
+       },
+       "required": [
+        "checked",
+        "input_errors",
+        "outcomes",
+        "truncated"
+       ],
+       "type": "object"
+      }
+     ]
+    }
+   },
+   "required": [
+    "bytes_in_git",
+    "command",
+    "last_verification_failures",
+    "non_regular",
+    "not_judged",
+    "outcome",
+    "output_schema_version",
+    "pointers_by_state",
+    "probe_detail",
+    "storage_configured",
+    "storage_probe_outcome",
+    "verification"
+   ],
+   "type": "object"
+  },
+  "cmd_withdraw_key_set": {
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "const": "withdraw-key-set"
+    },
+    "complete": {
+     "type": "boolean"
+    },
+    "key": {
+     "type": "string"
+    },
+    "outcome": {
+     "type": "null"
+    },
+    "output_schema_version": {
+     "const": 1
+    },
+    "results": {
+     "items": {
+      "additionalProperties": false,
+      "properties": {
+       "detail": {
+        "oneOf": [
+         {
+          "type": "null"
+         },
+         {
+          "type": "string"
+         }
+        ]
+       },
+       "error": {
+        "oneOf": [
+         {
+          "type": "null"
+         },
+         {
+          "const": "input"
+         }
+        ]
+       },
+       "path": {
+        "type": "string"
+       },
+       "result": {
+        "oneOf": [
+         {
+          "type": "null"
+         },
+         {
+          "$ref": "#/$defs/write_fields"
+         }
+        ]
+       }
+      },
+      "required": [
+       "detail",
+       "error",
+       "path",
+       "result"
+      ],
+      "type": "object"
+     },
+     "type": "array"
+    },
+    "staged": {
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    },
+    "unsaved_same_sha256": {
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    }
+   },
+   "required": [
+    "command",
+    "complete",
+    "key",
+    "outcome",
+    "output_schema_version",
+    "results",
+    "staged",
+    "unsaved_same_sha256"
+   ],
+   "type": "object"
+  },
+  "cmd_write_result": {
+   "additionalProperties": false,
+   "properties": {
+    "command": {
+     "enum": [
+      "write",
+      "fail-pending",
+      "complete-pending",
+      "late-save",
+      "withdraw"
+     ]
+    },
+    "detail": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    },
+    "outcome": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/write_outcome"
+      }
+     ]
+    },
+    "output_schema_version": {
+     "const": 1
+    },
+    "path": {
+     "type": "string"
+    },
+    "reason": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/reason"
+      }
+     ]
+    },
+    "route": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/route_obj"
+      }
+     ]
+    },
+    "staged": {
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    },
+    "state": {
+     "$ref": "#/$defs/state"
+    },
+    "user_mark": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/user_mark"
+      }
+     ]
+    }
+   },
+   "required": [
+    "command",
+    "detail",
+    "outcome",
+    "output_schema_version",
+    "path",
+    "reason",
+    "route",
+    "staged",
+    "state",
+    "user_mark"
+   ],
+   "type": "object"
+  },
+  "probe_outcome": {
+   "enum": [
+    "ok",
+    "storage-denied",
+    "storage-unavailable"
+   ]
+  },
+  "read_outcome": {
+   "enum": [
+    "in-git",
+    "ok",
+    "pending-upload",
+    "object-missing",
+    "size-mismatch",
+    "sha-mismatch",
+    "not-stored",
+    "withdrawn",
+    "storage-not-configured",
+    "storage-denied",
+    "storage-unavailable",
+    "pointer-invalid",
+    "pointer-version-unknown",
+    "lfs-unsupported"
+   ],
+   "x-meanings": {
+    "in-git": "по пути байты (не указатель этой главы и не указатель LFS); хранилище не участвует",
+    "lfs-unsupported": "по пути указатель Git LFS (lfs.signature_prefix); адаптер не действует; клиент показывает «формат LFS не поддерживается»",
+    "not-stored": "unsaved; объекта не ждут; отдаются reason и source",
+    "object-missing": "stored; объекта нет",
+    "ok": "stored или pending; объект есть, size и sha256 совпали",
+    "pending-upload": "pending; объекта нет — ещё не загружено, не дефект",
+    "pointer-invalid": "сигнатура указателя; первая строка не проходит pointer.first_line_pattern, либо версия 1 и грамматика не выполнена; адаптер не действует",
+    "pointer-version-unknown": "первая строка проходит pointer.first_line_pattern, версия не из pointer.known_versions; адаптер не действует",
+    "sha-mismatch": "размер равен, sha256 не совпал",
+    "size-mismatch": "объект есть, размер не равен size",
+    "storage-denied": "привязка есть, ключи отвергнуты; повтор не поможет",
+    "storage-not-configured": "stored или pending, привязки нет",
+    "storage-unavailable": "сеть, таймаут, отказ хранилища 5xx, обрыв тела ответа при GET (не size-mismatch), отсутствующий бакет — 404 NoSuchBucket, деталь no-such-bucket (бакет — свойство привязки и инфраструктуры, а не ключа); повтор, в том числе после исправления привязки, может помочь",
+    "withdrawn": "withdrawn; объекта не ждут; отдаётся reason"
+   }
+  },
+  "reason": {
+   "enum": [
+    "no-storage",
+    "source-refused",
+    "upload-failed",
+    "secret",
+    "erasure"
+   ]
+  },
+  "route_obj": {
+   "additionalProperties": false,
+   "properties": {
+    "reason": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/reason"
+      }
+     ]
+    },
+    "step": {
+     "minimum": 0,
+     "type": "integer"
+    },
+    "target": {
+     "$ref": "#/$defs/route_target"
+    }
+   },
+   "required": [
+    "reason",
+    "step",
+    "target"
+   ],
+   "type": "object"
+  },
+  "route_target": {
+   "enum": [
+    "git",
+    "storage",
+    "unsaved"
+   ]
+  },
+  "state": {
+   "enum": [
+    "git",
+    "stored",
+    "pending",
+    "unsaved",
+    "withdrawn"
+   ]
+  },
+  "user_mark": {
+   "enum": [
+    "не сохранено — хранилище не настроено",
+    "не сохранено — источник не отдал файл",
+    "не сохранено — загрузка не удалась"
+   ],
+   "x-reasons": {
+    "не сохранено — загрузка не удалась": "upload-failed",
+    "не сохранено — источник не отдал файл": "source-refused",
+    "не сохранено — хранилище не настроено": "no-storage"
+   }
+  },
+  "verification_failure": {
+   "enum": [
+    "object-missing",
+    "size-mismatch",
+    "sha-mismatch"
+   ]
+  },
+  "write_fields": {
+   "additionalProperties": false,
+   "properties": {
+    "detail": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "type": "string"
+      }
+     ]
+    },
+    "outcome": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/write_outcome"
+      }
+     ]
+    },
+    "path": {
+     "type": "string"
+    },
+    "reason": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/reason"
+      }
+     ]
+    },
+    "route": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/route_obj"
+      }
+     ]
+    },
+    "staged": {
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    },
+    "state": {
+     "$ref": "#/$defs/state"
+    },
+    "user_mark": {
+     "oneOf": [
+      {
+       "type": "null"
+      },
+      {
+       "$ref": "#/$defs/user_mark"
+      }
+     ]
+    }
+   },
+   "required": [
+    "detail",
+    "outcome",
+    "path",
+    "reason",
+    "route",
+    "staged",
+    "state",
+    "user_mark"
+   ],
+   "type": "object"
+  },
+  "write_outcome": {
+   "enum": [
+    "uploaded",
+    "already-present",
+    "repaired",
+    "bytes-mismatch",
+    "storage-not-configured",
+    "storage-denied",
+    "storage-unavailable"
+   ],
+   "x-meanings": {
+    "already-present": "объект с теми же size и sha256 уже есть; записи не было (идемпотентность)",
+    "bytes-mismatch": "поданные байты не дают sha256 указателя; ничего не записано",
+    "repaired": "под ключом лежали иные байты; перезаписаны верными и проверены",
+    "storage-denied": "ключи отвергнуты; ничего не записано",
+    "storage-not-configured": "привязки нет; ничего не записано",
+    "storage-unavailable": "сеть или хранилище, в том числе отсутствующий бакет (404 NoSuchBucket, деталь no-such-bucket); ничего не подтверждено",
+    "uploaded": "объекта не было; записан и проверен (size, sha256)"
+   }
+  }
+ },
+ "$id": "urn:cherrypick-workshop:attach-cli-output:1",
+ "oneOf": [
+  {
+   "$ref": "#/$defs/cmd_adapter_fault"
+  },
+  {
+   "$ref": "#/$defs/cmd_classify"
+  },
+  {
+   "$ref": "#/$defs/cmd_input_error"
+  },
+  {
+   "$ref": "#/$defs/cmd_key_paths"
+  },
+  {
+   "$ref": "#/$defs/cmd_probe"
+  },
+  {
+   "$ref": "#/$defs/cmd_read_result"
+  },
+  {
+   "$ref": "#/$defs/cmd_route"
+  },
+  {
+   "$ref": "#/$defs/cmd_status"
+  },
+  {
+   "$ref": "#/$defs/cmd_withdraw_key_set"
+  },
+  {
+   "$ref": "#/$defs/cmd_write_result"
+  }
+ ],
+ "title": "workshop attach CLI --json output",
+ "x-commands": {
+  "classify": "classify",
+  "complete-pending": "write_result",
+  "fail-pending": "write_result",
+  "key-paths": "key_paths",
+  "late-save": "write_result",
+  "probe": "probe",
+  "read": "read_result",
+  "route": "route",
+  "status": "status",
+  "verify": "read_result",
+  "withdraw": "write_result",
+  "withdraw-key-set": "withdraw_key_set",
+  "write": "write_result"
+ },
+ "x-exit-codes": [
+  {
+   "meaning": "команда исполнена; исход нормы — в полях вывода (outcome / state / storage_probe_outcome …)",
+   "name": "executed",
+   "rc": 0
+  },
+  {
+   "meaning": "вход вне контракта (аргументы, путь, состояние по пути); адаптер не действовал",
+   "name": "input",
+   "rc": 2
+  },
+  {
+   "meaning": "собственная ошибка адаптера (неожиданное исключение, порча конфига, сбой разбора своего вывода, дрейф реестров нормы) — фатальный исход вне таблиц нормы",
+   "name": "adapter-fault",
+   "rc": 3
+  }
+ ],
+ "x-norm": {
+  "chapter": "04-attachments",
+  "schema_version": 2,
+  "source_sha256": "2162e2f2cafb081c3fd604890309d63351c7b2a32c12616ac29ce70f6f256181",
+  "spec": "cherrypick-workshop-format"
+ },
+ "x-output-schema-version": 1,
+ "x-status-facts": [
+  "storage_configured",
+  "storage_probe_outcome",
+  "pointers_by_state",
+  "last_verification_failures"
+ ]
+}

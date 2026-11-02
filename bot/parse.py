@@ -24,6 +24,9 @@ T8 — реестр форм длительности `kit/duration-forms.yaml`,
   identity: 'tg:<chat>:<message_id>'; message_date, from_id, chat_id, chat_type, update_id, message_id
   thread_id: int | None — топик форум-группы (message_thread_id), в который уходит ответ; from_name — имя и @тег из мессенджера
   is_callback: bool; confirmed: bool (обёрнуто префиксом подтверждения)
+  addressed: True — сообщение адресовано боту: обращение `@бот` в начале ЛИБО ответ (reply) на сообщение самого бота
+  reply_to_bot: True — ответ (reply) на сообщение бота [ЭРРАТА D10 «А», А6: privacy-mode доставляет в группе только
+    команды и ответы боту, reply — единственный путь свободного текста в группе]; ключи ставятся только при True
 Чистый модуль: ни сети, ни git; файлы реестров читаются через yamlmini.
 """
 
@@ -292,13 +295,14 @@ class DurationForms(object):
 
 
 class Parser(object):
-    def __init__(self, registry_path, bot_username=None, forms_path=None):
+    def __init__(self, registry_path, bot_username=None, forms_path=None, bot_id=None):
         self.registry = yamlmini.load_file(registry_path)
         if self.registry.get("registry") != "commands":
             raise ValueError("не реестр команд: %s" % registry_path)
         self.positions = self.registry["commands"]
         self.confirm_prefix = self.registry["confirm_prefix"]
         self.bot_username = (bot_username or "").lower().lstrip("@")
+        self.bot_id = bot_id if isinstance(bot_id, int) and not isinstance(bot_id, bool) else None
         self.by_token = {}
         for p in self.positions:
             self.by_token.setdefault(p["token"].lower(), []).append(p)
@@ -311,6 +315,24 @@ class Parser(object):
         if base["kind"] != "input":
             return base
         return self._parse_text(base, base["text"], confirmed=False)
+
+    def _is_self(self, frm):
+        """Автор — сам этот бот: по id из getMe (авторитет); без id — по имени бота среди ботов; без обоих — нет
+        (не угадываем: чужой бот адресатом не становится)."""
+        if not isinstance(frm, dict):
+            return False
+        fid = frm.get("id")
+        if self.bot_id is not None:
+            return isinstance(fid, int) and not isinstance(fid, bool) and fid == self.bot_id
+        if self.bot_username:
+            return frm.get("is_bot") is True and str(frm.get("username") or "").lower() == self.bot_username
+        return False
+
+    def _reply_to_bot(self, m):
+        """Ответ (reply) на сообщение бота [А6]. Корневое служебное сообщение топика форум-группы (`forum_topic_created`)
+        ответом не является: мессенджер ставит его в reply_to_message КАЖДОМУ сообщению топика."""
+        rt = m.get("reply_to_message")
+        return isinstance(rt, dict) and "forum_topic_created" not in rt and self._is_self(rt.get("from"))
 
     def _envelope(self, update):
         if not isinstance(update, dict):
@@ -326,11 +348,15 @@ class Parser(object):
             frm = m.get("from") or {}
             if not isinstance(frm.get("id"), int):
                 return {"kind": "non_input", "reason": "no_sender", "update_id": uid}
-            return {"kind": "input", "is_callback": False, "update_id": uid, "message_id": m.get("message_id"),
-                    "chat_id": chat.get("id"), "chat_type": chat.get("type"), "from_id": frm["id"],
-                    "from_name": _from_name(frm), "message_date": m.get("date"),
-                    "thread_id": (m.get("message_thread_id") if m.get("is_topic_message") else None),
-                    "identity": "tg:%d:%d" % (chat.get("id"), m.get("message_id")), "text": m["text"].encode("utf-8")}
+            out = {"kind": "input", "is_callback": False, "update_id": uid, "message_id": m.get("message_id"),
+                   "chat_id": chat.get("id"), "chat_type": chat.get("type"), "from_id": frm["id"],
+                   "from_name": _from_name(frm), "message_date": m.get("date"),
+                   "thread_id": (m.get("message_thread_id") if m.get("is_topic_message") else None),
+                   "identity": "tg:%d:%d" % (chat.get("id"), m.get("message_id")), "text": m["text"].encode("utf-8")}
+            if self._reply_to_bot(m):
+                out["addressed"] = True
+                out["reply_to_bot"] = True
+            return out
         if "callback_query" in update and isinstance(update["callback_query"], dict):
             cq = update["callback_query"]
             msg = cq.get("message") or {}

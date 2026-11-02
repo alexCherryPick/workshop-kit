@@ -79,6 +79,9 @@ def _scalar(rest, ascii_only=False):
             return None
     else:
         v = re.split(rb"[ \t]+#", v, maxsplit=1)[0].rstrip(b" \t")
+        # plain-написание null YAML (~, null, Null, NULL) — значения нет, как у валидатора (T23 R7 N8); в кавычках — строка
+        if v in (b"~", b"null", b"Null", b"NULL"):
+            return None
     if not v or re.search(rb"\s", v):
         return None
     if ascii_only and not v.isascii():

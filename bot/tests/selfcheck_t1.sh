@@ -309,24 +309,62 @@ for w in sorted(glob.glob("bot/kit/workflows/*.yml")):
 # прогон падает ModuleNotFoundError уже у заказчика. Проверяется по AST, не грепом.
 import ast, os
 laid = {e["dst"]: e["src"] for e in yamlmini.load_file("bot/kit/manifest.yaml")["entries"]}
-importable = {os.path.basename(d)[:-3] for d in laid if d.endswith(".py")}
+laid_src = set(laid.values())
+# D20 T4: импортируемые имена верхнего уровня — плоские модули (.workshop/bot/X.py, .workshop/bot/kit/X.py) И пакеты
+# (.workshop/bot/<пакет>/__init__.py); подмодули пакета верхним уровнем не являются
+importable = set()
+for d in laid:
+    if not d.endswith(".py"):
+        continue
+    rest = d[len(".workshop/bot/"):] if d.startswith(".workshop/bot/") else None
+    if rest is None:
+        continue
+    seg = rest.split("/")
+    if len(seg) == 1 or (len(seg) == 2 and seg[0] == "kit"):
+        importable.add(seg[-1][:-3])
+    elif len(seg) == 2 and seg[1] == "__init__.py":
+        importable.add(seg[0])
 stdlib = set(getattr(sys, "stdlib_module_names", ())) | {"yamlmini"}
+def in_kit(n):
+    return [c for c in ("bot/%s.py" % n, "bot/kit/%s.py" % n, "bot/%s/__init__.py" % n) if os.path.exists(c)]
 missing = []
 for dst, src in sorted(laid.items()):
     if not dst.endswith(".py"):
         continue
     tree = ast.parse(open(src, encoding="utf-8").read(), src)
-    names = set()
+    pkg_dir = os.path.dirname(src)
     for node in ast.walk(tree):
+        need = []                       # (имя для сообщения, пути-кандидаты в дереве bot/)
         if isinstance(node, ast.Import):
-            names |= {a.name.split(".")[0] for a in node.names}
+            for a in node.names:
+                top = a.name.split(".")[0]
+                if top not in stdlib and top not in importable:
+                    need.append((top, in_kit(top)))
+                parts = a.name.split(".")
+                if len(parts) > 1 and os.path.exists("bot/%s/__init__.py" % parts[0]):
+                    need.append((a.name, ["bot/%s.py" % "/".join(parts)]))
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            names.add(node.module.split(".")[0])
-    for n in sorted(names):
-        if n in stdlib or n in importable:
-            continue
-        if os.path.exists(os.path.join("bot", n + ".py")) or os.path.exists(os.path.join("bot", "kit", n + ".py")):
-            missing.append("%s импортирует %s — модуль есть в комплекте, но НЕ разложен" % (dst, n))
+            top = node.module.split(".")[0]
+            if top not in stdlib and top not in importable:
+                need.append((top, in_kit(top)))
+            parts = node.module.split(".")
+            if os.path.exists("bot/%s/__init__.py" % parts[0]):
+                need.append((node.module, ["bot/%s.py" % "/".join(parts)] if len(parts) > 1 else []))
+                need += [("%s.%s" % (node.module, a.name), ["bot/%s/%s.py" % ("/".join(parts), a.name)]) for a in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.level >= 1:
+            base = pkg_dir
+            for _ in range(node.level - 1):
+                base = os.path.dirname(base)
+            if node.module:
+                need.append((node.module, [os.path.join(base, *node.module.split(".")) + ".py"]))
+            else:
+                need += [(a.name, [os.path.join(base, a.name + ".py")]) for a in node.names]
+        for name, cands in need:
+            for c in cands:
+                if os.path.exists(c) and c not in laid_src:
+                    missing.append("%s импортирует %s — модуль %s есть в комплекте, но НЕ разложен" % (dst, name, c))
+pkgs = sorted(i for i in importable if os.path.exists("bot/%s/__init__.py" % i))
+print("  разложенных пакетов: %d %s" % (len(pkgs), pkgs))
 print("  вызовов скриптов в обёртках: отсутствующих в манифесте %d %s; импортов разложенных модулей вне раскладки: %d %s" % (len(bad), bad, len(missing), missing))
 sys.exit(1 if (bad or missing) else 0)
 EOF2

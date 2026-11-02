@@ -131,10 +131,10 @@ class UndoTests(unittest.TestCase):
         # 4. голый команды отзыва не переключает: отзывает СЛЕДУЮЩУЮ неотозванную, затем — нечего
         r, _, _ = self.run_poll([msg(TOK["undo"], date=T0 + 60)])
         m("4 без N → следующая неотозванная («созвон»)", r["outcomes"][-1][1] == "retracted" and o.hours_in_account() == 0)
-        r, t, _ = self.run_poll([msg(TOK["undo"], date=T0 + 70)])
-        m("4a без N при всём отозванном → reask no_line", r["outcomes"][-1][1] == "reask_undo_not_found" and "no_line" in t.sent[-1][1] and len(t.sent[-1][1].split("\n")) == 1)
-        r, t, _ = self.run_poll([msg(TOK["undo"] + " 9", date=T0 + 80)])
-        m("4b N вне списка → n_out_of_range", r["outcomes"][-1][1] == "reask_undo_not_found" and "n_out_of_range" in t.sent[-1][1])
+        r, t, ctx = self.run_poll([msg(TOK["undo"], date=T0 + 70)])
+        m("4a без N при всём отозванном → reask no_line", r["outcomes"][-1][1] == "reask_undo_not_found" and (botrepo.traced_reason(ctx) == "no_line" and "no_line" not in t.sent[-1][1]) and len(t.sent[-1][1].split("\n")) == 1)
+        r, t, ctx = self.run_poll([msg(TOK["undo"] + " 9", date=T0 + 80)])
+        m("4b N вне списка → n_out_of_range", r["outcomes"][-1][1] == "reask_undo_not_found" and (botrepo.traced_reason(ctx) == "n_out_of_range" and "n_out_of_range" not in t.sent[-1][1]))
         # 5. чужая строка недосягаема: dev-three отзывает — у него нет строк
         r, t, _ = self.run_poll([msg(TOK["undo"], from_id=DEV3_ID, date=T0 + 90)])
         m("5 чужая строка → у другого человека no_line, файлы dev-one не тронуты", r["outcomes"][-1][1] == "reask_undo_not_found" and s.read(TS) == container_before)
@@ -154,8 +154,8 @@ class UndoTests(unittest.TestCase):
         with open(os.path.join(s.root, TS), "ab") as fh:
             fh.write("2026-09-08 0.50  рукописная без якоря\n".encode("utf-8"))
         git(s.root, "commit", "-qam", "hand"); git(s.root, "push", "-q", "origin", "main")
-        r, t, _ = self.run_poll([msg(TOK["undo"], date=T0 + 120)])
-        m("7 хвост без якоря → target_unanchored, ничего не отозвано", r["outcomes"][-1][1] == "reask_undo_not_found" and "target_unanchored" in t.sent[-1][1])
+        r, t, ctx = self.run_poll([msg(TOK["undo"], date=T0 + 120)])
+        m("7 хвост без якоря → target_unanchored, ничего не отозвано", r["outcomes"][-1][1] == "reask_undo_not_found" and (botrepo.traced_reason(ctx) == "target_unanchored" and "target_unanchored" not in t.sent[-1][1]))
         sys.stderr.write("\n[G14 matrix] %d:\n%s\n" % (len(rows), "\n".join(rows)))
 
     def run_poll_with_prereconcile_push(self, updates, inject):
@@ -195,16 +195,16 @@ class UndoTests(unittest.TestCase):
             self._append_foreign(other, self._foreign_block("retracts:t:", anchor, 1))
             git(other, "commit", "-qm", "foreign retraction"); git(other, "push", "-q", "origin", "HEAD:main")
         n = len(self.commits())
-        r, t, _ = self.run_poll_with_prereconcile_push([msg(TOK["undo"], date=T0 + 20)], inject)
+        r, t, ctx = self.run_poll_with_prereconcile_push([msg(TOK["undo"], date=T0 + 20)], inject)
         self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found", r["outcomes"])
-        self.assertIn("target_changed", t.sent[-1][1])
+        self.assertEqual(botrepo.traced_reason(ctx), "target_changed"); self.assertNotIn("target_changed", t.sent[-1][1])
         self.assertEqual(len(self.commits()), n + 2)      # чужой коммит + коммит offset; спутник ботом не коммитился:
         self.assertEqual(git(s.root, "log", "--format=%s", "-1", "origin/main", "--", CM).strip(), "foreign retraction")
         self.assertEqual(len([h for h in o.blocks() if h["author"] == "dev-one" and h["link"] == "retracts:t:"]), 1)
         self.assertTrue(o.retracted(anchor, o.blocks()))
         # по актуальному списку: строка отозвана чужим каналом → отзыва без N нет (no_line), с N — возврат
-        r, t, _ = self.run_poll([msg(TOK["undo"], date=T0 + 30)])
-        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found"); self.assertIn("no_line", t.sent[-1][1])
+        r, t, ctx = self.run_poll([msg(TOK["undo"], date=T0 + 30)])
+        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found"); self.assertEqual(botrepo.traced_reason(ctx), "no_line"); self.assertNotIn("no_line", t.sent[-1][1])
         self.run_poll([msg(TOK["last"], date=T0 + 40)])
         r, t, _ = self.run_poll([msg(TOK["undo"] + " 1", date=T0 + 50)])
         self.assertEqual(r["outcomes"][-1][1], "unretracted")
@@ -224,8 +224,8 @@ class UndoTests(unittest.TestCase):
         def inject():
             self._append_foreign(other, self._foreign_block("retracts:", ret_cid, 2, "возврат из фронта"))
             git(other, "commit", "-qm", "foreign return"); git(other, "push", "-q", "origin", "HEAD:main")
-        r, t, _ = self.run_poll_with_prereconcile_push([msg(TOK["undo"] + " 1", date=T0 + 20)], inject)
-        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found"); self.assertIn("target_changed", t.sent[-1][1])
+        r, t, ctx = self.run_poll_with_prereconcile_push([msg(TOK["undo"] + " 1", date=T0 + 20)], inject)
+        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found"); self.assertEqual(botrepo.traced_reason(ctx), "target_changed"); self.assertNotIn("target_changed", t.sent[-1][1])
         heads = o.blocks()
         self.assertEqual(len([h for h in heads if h["link"] == "retracts:" and h["target"] == ret_cid]), 1)
         self.assertFalse(o.retracted(anchor, heads)); self.assertEqual(o.hours_in_account(), 200)
@@ -318,8 +318,8 @@ class UndoTests(unittest.TestCase):
         def inject():
             self._append_foreign(other, self._foreign_block("retracts:t:", anchor, 2, "канал B"))
             git(other, "commit", "-qm", "foreign B"); git(other, "push", "-q", "origin", "HEAD:main")
-        r, t, _ = self.run_poll_with_prereconcile_push([msg(TOK["undo"] + " 1", date=T0 + 20)], inject)
-        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found", r["outcomes"]); self.assertIn("target_changed", t.sent[-1][1])
+        r, t, ctx = self.run_poll_with_prereconcile_push([msg(TOK["undo"] + " 1", date=T0 + 20)], inject)
+        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found", r["outcomes"]); self.assertEqual(botrepo.traced_reason(ctx), "target_changed"); self.assertNotIn("target_changed", t.sent[-1][1])
         heads = o.blocks()
         self.assertEqual(len([h for h in heads if h["link"] == "retracts:"]), 0); self.assertTrue(o.retracted(anchor, heads))
         # та же МОЩНОСТЬ, другой состав (раунд 8, мутант len-вместо-set): отзыв A возвращён чужим каналом, добавлен отзыв C
@@ -328,8 +328,8 @@ class UndoTests(unittest.TestCase):
         def inject2():
             self._append_foreign(other, self._foreign_block("retracts:", a_cid, 3, "возврат A") + self._foreign_block("retracts:t:", anchor, 4, "канал C"))
             git(other, "commit", "-qm", "swap A for C"); git(other, "push", "-q", "origin", "HEAD:main")
-        r, t, _ = self.run_poll_with_prereconcile_push([msg(TOK["undo"] + " 1", date=T0 + 40)], inject2)
-        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found", r["outcomes"]); self.assertIn("target_changed", t.sent[-1][1])
+        r, t, ctx = self.run_poll_with_prereconcile_push([msg(TOK["undo"] + " 1", date=T0 + 40)], inject2)
+        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found", r["outcomes"]); self.assertEqual(botrepo.traced_reason(ctx), "target_changed"); self.assertNotIn("target_changed", t.sent[-1][1])
 
     def test_n_beyond_shown_list_is_out_of_range(self):
         """Раунд 8 Fable, W1: N больше предела показа (last_max_n) — n_out_of_range, а не отзыв невидимой строки."""
@@ -338,8 +338,8 @@ class UndoTests(unittest.TestCase):
         for k in range(cap + 3):
             self.run_poll([msg("1ч строка %d" % k, date=T0 + k * 100)])
         self.run_poll([msg(TOK["last"] + " 9999", date=T0 + 100000)])
-        r, t, _ = self.run_poll([msg(TOK["undo"] + " %d" % (cap + 1), date=T0 + 100010)])
-        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found", r["outcomes"]); self.assertIn("n_out_of_range", t.sent[-1][1])
+        r, t, ctx = self.run_poll([msg(TOK["undo"] + " %d" % (cap + 1), date=T0 + 100010)])
+        self.assertEqual(r["outcomes"][-1][1], "reask_undo_not_found", r["outcomes"]); self.assertEqual(botrepo.traced_reason(ctx), "n_out_of_range"); self.assertNotIn("n_out_of_range", t.sent[-1][1])
         self.assertEqual(o.hours_in_account(), (cap + 3) * 100)
         r, t, _ = self.run_poll([msg(TOK["undo"] + " %d" % cap, date=T0 + 100020)])
         self.assertEqual(r["outcomes"][-1][1], "retracted", r["outcomes"])

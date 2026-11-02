@@ -14,6 +14,7 @@ _BOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _KIT = os.path.join(_BOT, "kit")
 GEN = os.path.join(_KIT, "build_help.py")
 COMMANDS = os.path.join(_KIT, "commands.yaml")
+PHRASES = os.path.join(_KIT, "reask-phrases.yaml")
 STEPS = os.path.join(_KIT, "install-steps.yaml")
 GUIDE = os.path.join(_KIT, "docs", "bot-user-guide.ru.md")
 PY = sys.executable
@@ -30,6 +31,34 @@ def registry_names(path):
         text = fh.read()
     body = text.split("\ncommands:\n", 1)[1]
     return re.findall(r'^    name: "(.*)"$', body, re.M)
+
+
+def dated_forms():
+    """Примеры форм с expected_date — независимым построчным чтением реестра форм."""
+    out, cur = [], None
+    for ln in open(os.path.join(_KIT, "duration-forms.yaml"), encoding="utf-8"):
+        m = re.match(r'^    example: "(.*)"$', ln)
+        if m:
+            cur = m.group(1)
+        if re.match(r'^    expected_date: "\d{4}-\d{2}-\d{2}"$', ln) and cur is not None:
+            out.append(cur)
+    return out
+
+
+def dated_positions():
+    """(токен, example_dated) позиций реестра команд — построчно."""
+    out, tok = [], None
+    body = open(COMMANDS, encoding="utf-8").read().split("\ncommands:\n", 1)[1]
+    for ln in body.split("\n"):
+        if re.match(r"^  - id: ", ln):
+            tok = None
+        m = re.match(r'^    token: "(.*)"$', ln)
+        if m:
+            tok = m.group(1)
+        m = re.match(r'^    example_dated: "(.*)"$', ln)
+        if m:
+            out.append((tok, m.group(1)))
+    return out
 
 
 def registry_ids(path):
@@ -245,6 +274,107 @@ class ProjectionTests(unittest.TestCase):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    def test_help_shows_backdate_examples_from_registry(self):
+        """ЭРРАТА D10 «А» (Б1–Б3): справка показывает пример записи ЗАДНИМ ЧИСЛОМ командой интервала с явной датой
+        и пример свободной строки «дата + длительность» — оба из реестров; блок инструкции — тоже."""
+        pos, forms = dated_positions(), dated_forms()
+        self.assertTrue(pos, "в реестре команд нет example_dated")
+        self.assertTrue(forms, "в реестре форм нет формы с expected_date")
+        for tok, ex in pos:
+            self.assertRegex(ex, r"^%s \d{4}-\d{2}-\d{2} \d{1,2}:\d{2}-\d{1,2}:\d{2} \S" % re.escape(tok))
+        for ex in forms:
+            self.assertRegex(ex, r"^\d{4}-\d{2}-\d{2} \S+")
+        # [Перенос D19 M2 на kernel-v2, 2026-10-13: справка — по макету help_page, примеры за прошлый день в ней —
+        # отдельными строками-сообщениями (каждую принимает парсер с датой — HelpPageTests), а не одной строкой
+        # «Запись за прошлый день…» (она остаётся в прежнем перечне — рантайм-фолбэке).]
+        rc, out = run("help")
+        self.assertEqual(rc, 0)
+        msgs = [m for m, _ in help_positions(out)[0]]
+        for ex in [ex for _, ex in pos] + forms:
+            self.assertEqual(msgs.count(ex), 1, "в справке нет строки-примера записи за прошлый день: %r" % ex)
+        # мутация: макет без строки-примера за прошлый день — отказ генератора (названный, без трассировки), а рантайм
+        # отвечает прежним перечнем со строкой записи за прошлый день (справки без способа записать прошлый день нет)
+        base = open(COMMANDS, encoding="utf-8").read()
+        items = re.findall(r'(?m)^  - ex: \S+\n(?:    (?:line|note): ".*"\n)+', help_page_raw_text(base) + "\n")
+        tmp = tempfile.mkdtemp(prefix="bh-dated-")
+        try:
+            for ex in [ex for _, ex in pos] + forms:
+                hit = [it for it in items if '\n    line: "%s"\n' % ex in it]
+                self.assertEqual(len(hit), 1, "в макете нет ровно одного элемента-примера %r" % ex)
+                self.assertEqual(base.count(hit[0]), 1)
+                cp = os.path.join(tmp, "commands.yaml")
+                with open(cp, "w", encoding="utf-8") as fh:
+                    fh.write(base.replace(hit[0], "", 1))
+                p = subprocess.run([PY, GEN, "help", "--commands", cp], capture_output=True)
+                self.assertNotEqual(p.returncode, 0, "макет без примера %r принят" % ex)
+                self.assertNotIn(b"Traceback", p.stderr)
+                self.assertIn(ex, p.stderr.decode("utf-8"))
+                code = ("import sys; sys.path[:0] = [%r, %r]; import build_help as b; "
+                        "sys.stdout.write(b.render_help(b.load_commands(sys.argv[1]), b.load_forms(sys.argv[2])))" % (_KIT, _BOT))
+                q = subprocess.run([PY, "-c", code, cp, os.path.join(_KIT, "duration-forms.yaml")], capture_output=True)
+                self.assertEqual(q.returncode, 0, q.stderr.decode("utf-8", "replace"))
+                legacy = q.stdout.decode("utf-8")
+                self.assertTrue(legacy.startswith("Команды бота"), "рантайм не откатился на прежний перечень")
+                self.assertEqual(len([ln for ln in legacy.split("\n") if all(e in ln for _, e in pos) and all(e in ln for e in forms)]), 1)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        rc, block = run("commands-block")
+        self.assertEqual(rc, 0)
+        for _, ex in pos:
+            self.assertIn("`%s`" % ex, block)
+
+    def test_refusal_matrix_batch(self):
+        """Отказ прогона справки (§1А(б): «отсутствие фразы — отказ прогона, а не показ кода»; Б1/Б2 — обязательные
+        примеры) — матрица мутаций реестров пакетом; обратный контроль — законная перестановка фраз: rc 0, вывод тот же."""
+        base = open(COMMANDS, encoding="utf-8").read()
+        forms = open(os.path.join(_KIT, "duration-forms.yaml"), encoding="utf-8").read()
+        phr = open(PHRASES, encoding="utf-8").read()          # R3-fix: фразы — отдельный реестр комплекта
+        node = phr.split("\nreask_reasons:\n", 1)[1].split("\nreask_reason_fallback:", 1)[0]
+        reason_lines = [ln for ln in node.split("\n") if re.match(r'^    [a-z0-9_]+: ".*"$', ln)]
+        first = reason_lines[0]
+        name = first.split(":", 1)[0].strip()
+        swapped = phr.replace(first + "\n" + reason_lines[1], reason_lines[1] + "\n" + first, 1)
+        P = lambda t: (base, forms, t)                          # мутация только реестра фраз
+        FB = lambda raw: "\n".join(("reask_reason_fallback: " + raw) if ln.startswith("reask_reason_fallback: ") else ln for ln in phr.split("\n"))
+        cases = [
+            ("нет example_dated у позиции track", (re.sub(r'(?m)^    example_dated: ".*"\n', "", base), forms, phr), True),
+            ("нет формы с expected_date", (base, re.sub(r'(?m)^    expected_date: ".*"\n', "", forms), phr), True),
+            ("пустая фраза причины", P(phr.replace(first, "    %s: \"\"" % name, 1)), True),
+            ("неизвестная подстановка", P(phr.replace(first, "    %s: \"x {token:zz_none}\"" % name, 1)), True),
+            ("неизвестный вид подстановки", P(phr.replace(first, "    %s: \"x {zz:help}\"" % name, 1)), True),
+            ("фраза с машинным именем причины", P(phr.replace(first, "    %s: \"не понял (%s)\"" % (name, name), 1)), True),
+            ("фраза длиннее бюджета", P(phr.replace(first, "    %s: \"%s\"" % (name, "ф" * 150), 1)), True),
+            ("неразобранная скобка", P(phr.replace(first, "    %s: \"x {token:help\"" % name, 1)), True),
+            ("исход не из перечня реестра", P(phr.replace("  reask_undo_not_found:\n", "  reask_zz_outcome:\n    x: \"y\"\n  reask_undo_not_found:\n", 1)), True),
+            ("нет фразы-заглушки", P(re.sub(r'(?m)^reask_reason_fallback: ".*"\n', "", phr)), True),
+            ("нет узла reask_reasons", P(phr.replace("reask_reasons:\n", "reask_reasons_off:\n", 1)), True),
+            ("дубль ключа в реестре фраз", P(phr.replace(first, first + "\n" + first, 1)), True),
+            ("неизвестный escape в реестре фраз", P(FB('"bad \\q"')), True),
+            ("незакрытая кавычка в реестре фраз", P(FB('"unclosed')), True),
+            ("реестр фраз пуст", P(""), True),
+            ("узел фраз в реестре команд", (base + "\nreask_reason_fallback: \"x\"\n", forms, phr), True),
+            ("обратный контроль: перестановка фраз", P(swapped), False),
+        ]
+        tmp = tempfile.mkdtemp(prefix="bh-mut-")
+        rows = []
+        try:
+            _, want = run("help")
+            for label, (ctext, ftext, ptext), must_fail in cases:
+                self.assertTrue(must_fail is False or (ctext, ftext, ptext) != (base, forms, phr), "мутация не построена: %s" % label)
+                cp, fp, pp = os.path.join(tmp, "c.yaml"), os.path.join(tmp, "f.yaml"), os.path.join(tmp, "p.yaml")
+                for path, text in ((cp, ctext), (fp, ftext), (pp, ptext)):
+                    with open(path, "w", encoding="utf-8") as fh:
+                        fh.write(text)
+                procs = [subprocess.run([PY, GEN, sub, "--commands", cp, "--forms", fp, "--phrases", pp], capture_output=True) for sub in ("help", "commands-block", "reasons")]
+                rcs = [p.returncode for p in procs]
+                named = all(b"Traceback" not in p.stderr for p in procs)   # отказ — названной причиной, не падением генератора
+                ok = named and (all(rc != 0 for rc in rcs) if must_fail else (rcs == [0, 0, 0] and run("help", "--commands", cp, "--forms", fp, "--phrases", pp)[1] == want))
+                rows.append("  %s  %-40s rc=%s" % ("PASS" if ok else "FAIL", label, rcs))
+                self.assertTrue(ok, label)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        sys.stderr.write("\n[справка: отказ прогона] %d:\n%s\n" % (len(rows), "\n".join(rows)))
+
     def test_steps_block_and_count(self):
         n = steps_count(STEPS)
         rc, out = run("count-steps")
@@ -269,7 +399,7 @@ class ProjectionTests(unittest.TestCase):
     def test_guide_markers_and_render_idempotent(self):
         with open(GUIDE, encoding="utf-8") as fh:
             guide = fh.read()
-        for tag in ("commands", "steps", "correction-example"):
+        for tag in ("commands", "steps", "correction-example", "dated-example"):
             self.assertEqual(guide.count("<!-- generated:%s:start -->" % tag), 1)
             self.assertEqual(guide.count("<!-- generated:%s:end -->" % tag), 1)
         rc, rendered = run("render", "--guide", GUIDE)
@@ -285,7 +415,21 @@ class ProjectionTests(unittest.TestCase):
         self.assertIsNotNone(m)
         first = re.search(r'^correction_examples:\n  - "(.*)"$', open(os.path.join(os.path.dirname(COMMANDS), "duration-forms.yaml"), encoding="utf-8").read(), re.M).group(1)
         self.assertEqual(m.group(1), "«%s»" % first)
-        self.assertNotIn("«", re.sub(r"<!-- generated:correction-example:start -->.*?<!-- generated:correction-example:end -->", "", prose.split("<!-- section: reask -->", 1)[1].split("<!-- section:", 1)[0], flags=re.S).replace("«длительность и\nзаголовок»", ""), "в разделе переспроса — рукописные примеры вне реестра")
+        # ЭРРАТА D10 «А» (А4): пример «дата + длительность» в прозе — из реестра форм (первая форма с expected_date)
+        m = re.search(r"<!-- generated:dated-example:start -->(.*?)<!-- generated:dated-example:end -->", guide, re.S)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), "«%s»" % dated_forms()[0])
+        # в разделе переспроса нет рукописных примеров: всё в «» — только внутри вставок, сгенерированных из реестров
+        reask = prose.split("<!-- section: reask -->", 1)[1].split("<!-- section:", 1)[0]
+        reask = re.sub(r"<!-- generated:([a-z-]+):start -->.*?<!-- generated:\1:end -->", "", reask, flags=re.S)
+        self.assertNotIn("«", reask.replace("«длительность и\nзаголовок»", ""), "в разделе переспроса — рукописные примеры вне реестра")
+        # А4: инструкция не обещает реакцию на `@бот` в свободном тексте и называет путь — личка или ответ боту
+        flat = re.sub(r"\s+", " ", prose)
+        # А1/А2/А4: ни проза, ни сгенерированный блок шагов не обещают реакцию на обращение к боту в свободном тексте
+        self.assertNotIn("обращения к себе", re.sub(r"\s+", " ", guide))
+        self.assertIn("ответы на свои сообщения", re.sub(r"\s+", " ", guide))
+        self.assertIn("ответом на его сообщение", flat)
+        self.assertIn("до бота не дойдёт", flat)
         for n in registry_names(COMMANDS):
             tok = n.split(" ")[0]
             if tok.startswith("/") or tok.startswith("!"):

@@ -456,10 +456,13 @@ class TestRaces(Base):
 
 
 class TestTransportDebounce(Base):
-    """D19 M5 (слово alex 2026-10-16): транзиентный сбой транспорта Telegram алармит, только когда удачного цикла нет
-    TRANSPORT_ALARM_AFTER_S; затем не чаще TRANSPORT_REALARM_EVERY_S. Иные сбои, отсутствие/порча отметки — алярм сразу.
-    Оракул — числа порогов читаются из модуля один раз, ожидания строятся от них; отметка читается json напрямую."""
+    """D19 M5, ЦЕЛЕВАЯ ФОРМА (DECISION 2026-10-17, слово alex 2026-10-18 «ок»): транзиентный сбой транспорта Telegram
+    алармит, только когда удачного цикла нет 600 с; затем не чаще 600 с после ДОСТАВЛЕННОГО алярма; верхней границы
+    давности last_seen нет. Иные сбои, отсутствие/порча отметки, сбой решения, отметку не обновить — алярм сразу.
+    Оракул — литералы политики из DECISION (600/600, 429, 5xx), чисел модуля тест не читает; отметка читается json напрямую.
+    Стенды по процессу на цикл и матрица таймаутов — harness/m5_transport_alarm.py."""
     NOW = 1790000000
+    A, R = 600, 600                         # DECISION: первое окно и окно повтора — литералы, не из модуля
 
     def _main(self, exc=None, now=None, send_fails=False):
         import io, contextlib
@@ -486,23 +489,54 @@ class TestTransportDebounce(Base):
             os.chdir(saved[3])
         return rc, sent, out.getvalue()
 
+    def _path(self):
+        return os.path.join(self.s.root, ".workshop-bin", "poller-transport.json")
+
     def _mark(self):
         import json
-        p = os.path.join(self.s.root, poll.TRANSPORT_MARK)
+        p = self._path()
         if not os.path.exists(p):
             return None
         with open(p, encoding="utf-8") as fh:
             return json.load(fh)
 
+    def _mark_bytes(self):
+        with open(self._path(), "rb") as fh:
+            return fh.read()
+
     def _set_mark(self, raw):
-        p = os.path.join(self.s.root, poll.TRANSPORT_MARK)
+        p = self._path()
         os.makedirs(os.path.dirname(p), exist_ok=True)
-        with open(p, "w", encoding="utf-8") as fh:
-            fh.write(raw)
+        with open(p, "wb") as fh:
+            fh.write(raw if isinstance(raw, bytes) else raw.encode("utf-8"))
 
     def _net(self, code=None, kind="network"):
         return poll.tg.TransportError("getUpdates: network error: [Errno 104] Connection reset by peer", method="getUpdates",
                                       error_code=code, kind=kind)
+
+    def _alarm_times(self, times):
+        """Отказ транспорта в каждый момент из times; → моменты, в которые алярм ДОСТАВЛЕН (rc 10 всякий раз)."""
+        got = []
+        for t in times:
+            rc, sent, out = self._main(self._net(), now=self.NOW + t)
+            self.assertEqual(rc, 10, (t, out))
+            if sent:
+                self.assertEqual(len(sent), 1, (t, sent))
+                got.append(t)
+        return got
+
+    def _double_mark_failure_success(self, t):
+        """Удачный цикл в момент t при .workshop-bin 0555: rc 0, запись И удаление отметки отказали (байты те же)."""
+        before = self._mark_bytes()
+        d = os.path.dirname(self._path())
+        os.chmod(d, 0o555)
+        try:
+            rc, sent, out = self._main(now=self.NOW + t)
+            self.assertEqual(rc, 0, out)
+            self.assertIn("transport-mark: не записана", out)
+            self.assertEqual(self._mark_bytes(), before, "отметку удалось изменить — предусловие сценария не выполнено")
+        finally:
+            os.chmod(d, 0o755)                                          # права вернулись ДО следующего отказа
 
     def test_success_writes_mark_self_ignored_tree_clean(self):
         rc, sent, out = self._main()
@@ -513,53 +547,73 @@ class TestTransportDebounce(Base):
         st = git(self.s.root, "status", "--porcelain", "--ignored=no")
         self.assertNotIn(".workshop-bin", st)
 
-    def test_policy_constants_are_ten_minutes_and_one_hour(self):
-        self.assertEqual((poll.TRANSPORT_ALARM_AFTER_S, poll.TRANSPORT_REALARM_EVERY_S), (600, 3600))   # слово alex: 10 мин
+    def test_policy_constants_are_ten_minutes_both(self):
+        self.assertEqual((poll.TRANSPORT_ALARM_AFTER_S, poll.TRANSPORT_REALARM_EVERY_S), (600, 600))   # DECISION: 600/600
 
     def test_threshold_boundary_and_realarm(self):
-        A, R, STEP = 600, 3600, 60                                      # независимо от модуля; шаг — пауза демона после сбоя
+        A, R, STEP = self.A, self.R, 60                                 # шаг — пауза демона после сбоя
         self._main()                                                    # last_ok = NOW
-        def chain(t0, t1, expect_sent):
-            for t in list(range(t0, t1, STEP)):
+        def chain(t0, t1):
+            for t in range(t0, t1, STEP):
                 rc, sent, out = self._main(self._net(), now=self.NOW + t)
-                self.assertEqual((rc, bool(sent)), (10, expect_sent), (t, out))
-        chain(STEP, A, False)                                           # 60…540 — тишина
+                self.assertEqual((rc, sent), (10, []), (t, out))
+        chain(STEP, A)                                                  # 60…540 — тишина
         rc, sent, out = self._main(self._net(), now=self.NOW + A - 1)   # 599 — тишина
         self.assertEqual(sent, [], out)
         self.assertIn("алярм отложен", out)
         rc, sent, out = self._main(self._net(), now=self.NOW + A)       # 600 — алярм с длительностью
-        self.assertTrue(sent and "сбой поллера (TransportError)" in sent[0][1] and "удачного цикла нет 10 мин" in sent[0][1], sent)
-        self.assertEqual(self._mark()["alarmed_at"], self.NOW + A)
-        chain(A + STEP, A + R, False)                                   # окно повтора — тишина
-        rc, sent, out = self._main(self._net(), now=self.NOW + A + R - 1)
+        self.assertTrue(len(sent) == 1 and "сбой поллера (TransportError)" in sent[0][1] and "удачного цикла нет 10 мин" in sent[0][1], sent)
+        self.assertEqual(self._mark(), {"last_ok": self.NOW, "alarmed_at": self.NOW + A, "last_seen": self.NOW + A})
+        rc, sent, out = self._main(self._net(), now=self.NOW + A)       # дубль события в тот же момент — тишина
         self.assertEqual(sent, [], out)
-        rc, sent, out = self._main(self._net(), now=self.NOW + A + R)   # 4200 — повтор
-        self.assertTrue(sent, "повторный алярм через R не ушёл")
-        rc, sent, out = self._main(now=self.NOW + A + R + 5)            # восстановление сбрасывает отметку алярма
-        self.assertEqual(self._mark(), {"last_ok": self.NOW + A + R + 5, "alarmed_at": None, "last_seen": self.NOW + A + R + 5})
-        rc, sent, out = self._main(self._net(), now=self.NOW + A + R + 10)
+        chain(A + STEP, A + R)                                          # окно повтора 660…1140 — тишина
+        rc, sent, out = self._main(self._net(), now=self.NOW + A + R - 1)   # 1199 — тишина
+        self.assertEqual(sent, [], out)
+        self.assertIn("повтор не чаще", out)
+        rc, sent, out = self._main(self._net(), now=self.NOW + A + R)   # 1200 — повтор
+        self.assertEqual(len(sent), 1, ("повторный алярм через 600 с не ушёл", out))
+        self.assertEqual(self._mark()["alarmed_at"], self.NOW + A + R)
+        rc, sent, out = self._main(self._net(), now=self.NOW + A + 2 * R - 1)   # 1799 — тишина
+        self.assertEqual(sent, [], out)
+        rc, sent, out = self._main(self._net(), now=self.NOW + A + 2 * R)       # 1800 — снова повтор
+        self.assertEqual(len(sent), 1, out)
+        rc, sent, out = self._main(now=self.NOW + 1805)                 # восстановление сбрасывает отметку алярма
+        self.assertEqual(self._mark(), {"last_ok": self.NOW + 1805, "alarmed_at": None, "last_seen": self.NOW + 1805})
+        rc, sent, out = self._main(self._net(), now=self.NOW + 1810)
         self.assertEqual(sent, [])
 
-    def test_broken_chain_of_cycles_alarms(self):
-        """Codex R2-01: удачный цикл не смог ни записать, ни удалить отметку, права вернулись ДО следующей аварии —
-        старое подавление не оживает: разрыв цепочки циклов (last_seen) больше TRANSPORT_CONTINUITY_S → алярм."""
-        import stat
+    def test_no_upper_bound_on_last_seen_gap(self):
+        """Codex R3-02: разрыв циклов больше 300 с (длинный http_timeout + backoff 60 + пауза 2) подавление НЕ выключает —
+        решают только 600 с от успеха и 600 с от доставленного алярма."""
+        t0 = 0
+        for gap, alarm in ((301, False), (332, False), (392, False), (599, False), (600, True), (900, True)):
+            t0 += 5000
+            self._main(now=self.NOW + t0)
+            rc, sent, out = self._main(self._net(), now=self.NOW + t0 + gap)
+            self.assertEqual(bool(sent), alarm, (gap, out))
+        t0 += 5000                                                      # серия с шагом 392 (300/330): 332, 724, 1116, 1508
+        self._main(now=self.NOW + t0)
+        got = [t - t0 for t in self._alarm_times([t0 + 332, t0 + 724, t0 + 1116, t0 + 1508])]
+        self.assertEqual(got, [724, 1508])
+
+    def test_r2_01_double_mark_failure_then_new_outage(self):
+        """Codex R2-01 в целевой форме: успех T, доставленный алярм T+600, удачный цикл T+700 без записи И удаления отметки,
+        права вернулись; отказ T+1400 — АЛЯРМ (старое окно повтора истекло: 800 ≥ 600); T+4199 — алярм; T+4200 — тишина."""
         self._main()
-        rc, sent, out = self._main(self._net(), now=self.NOW + 600)
-        self.assertTrue(sent)
-        d = os.path.join(self.s.root, ".workshop-bin")
-        os.chmod(d, stat.S_IRUSR | stat.S_IXUSR)
-        try:
-            rc, sent, out = self._main(now=self.NOW + 700)               # удачный, отметку не обновить и не удалить
-            self.assertEqual(rc, 0, out)
-        finally:
-            os.chmod(d, stat.S_IRWXU)                                   # права вернулись до аварии
-        rc, sent, out = self._main(self._net(), now=self.NOW + 1400)
-        self.assertTrue(sent, ("подавление прошлой аварии ожило после восстановления прав", out))
-        for gap in (301, 900):                                          # и просто долгий разрыв без отметки
-            self._main(now=self.NOW + 2000)
-            rc, sent, out = self._main(self._net(), now=self.NOW + 2000 + gap)
-            self.assertTrue(sent, gap)
+        self.assertEqual(self._alarm_times([600]), [600])
+        self._double_mark_failure_success(700)
+        self.assertEqual(self._alarm_times([1400, 4199, 4200]), [1400, 4199])
+
+    def test_r3_01_double_mark_failure_silence_bounded(self):
+        """Codex R3-01 в целевой форме: успех T, алярм T+600, успех T+662 без записи и удаления, права вернулись до отказа;
+        отказы T+664+62k (до T+4198) и T+4200. Новая авария алармит в T+1222 (≤ 662 + 600 + 62), а не через 58 мин 56 с;
+        далее повтор через ≥ 600 с."""
+        self._main()
+        self.assertEqual(self._alarm_times([600]), [600])
+        self._double_mark_failure_success(662)
+        got = self._alarm_times([664 + 62 * k for k in range(58)] + [4200])
+        self.assertEqual(got, [1222, 1842, 2462, 3082, 3702])
+        self.assertLessEqual(got[0], 662 + 600 + 62)
 
     def test_transient_classes_vs_immediate(self):
         self._main()
@@ -577,30 +631,80 @@ class TestTransportDebounce(Base):
             self.assertTrue(sent and "сбой поллера" in sent[0][1], ("нетранзиентный не алармит сразу", exc, out))
 
     def test_missing_corrupt_or_future_mark_alarms_conservatively(self):
+        """Порча отметки — алярм. Фикстуры — ПОЛНЫЕ отметки (с last_seen), порчено ровно одно поле, поэтому проверка доходит
+        до условия; валидный контроль тех же моментов (и с переставленными ключами) — тишина."""
         rc, sent, out = self._main(self._net())                        # отметки нет (CI-форма, свежий клон)
         self.assertTrue(sent, out)
-        for raw in ("", "{", "[]", '{"last_ok": "x"}', '{"last_ok": true}', '{"alarmed_at": 1}', "null",
-                    '{"last_ok": %d}' % (self.NOW + 100),             # время отметки в будущем
-                    '{"last_ok": -1e309}', '{"last_ok": 1e309}', '{"last_ok": NaN}', '{"last_ok": Infinity}',
-                    '{"last_ok": %s}' % ("9" * 400), '{"last_ok": 0}', '{"last_ok": -5}',
-                    '{"last_ok": %d, "alarmed_at": "bad"}' % (self.NOW - 30),
-                    '{"last_ok": %d, "alarmed_at": %d}' % (self.NOW - 30, self.NOW + 50),     # окно повтора в будущем
-                    '{"last_ok": %d, "alarmed_at": %d}' % (self.NOW - 30, self.NOW - 90),     # окно раньше last_ok
-                    "[" * 200000 + "]" * 200000):                    # RecursionError разбора
+        ok, N = self.NOW - 30, self.NOW
+        def full(last_ok="%d" % ok, alarmed_at="null", last_seen="%d" % ok):
+            return '{"last_ok": %s, "alarmed_at": %s, "last_seen": %s}' % (last_ok, alarmed_at, last_seen)
+        for raw in (full(), '{ "last_seen" : %d , "alarmed_at":null,"last_ok":%d }' % (ok, ok),
+                    full(alarmed_at="%d" % ok), full(alarmed_at="%d" % N, last_seen="%d" % N)):
             self._set_mark(raw)
-            rc, sent, out = self._main(self._net(), now=self.NOW)
-            self.assertEqual(rc, 10, raw)
-            self.assertTrue(sent, ("порча отметки подавила алярм", raw, out))
+            rc, sent, out = self._main(self._net(), now=N)
+            self.assertEqual((rc, sent), (10, []), ("валидная отметка не подавила — контроль фикстур", raw, out))
+        corrupt = ["", "{", "[]", "null", '"str"', "1", "[" * 200000 + "]" * 200000, b"\xff\xfe{}",
+                   '{"alarmed_at": null, "last_seen": %d}' % ok,                         # нет last_ok
+                   '{"last_ok": %d, "alarmed_at": null}' % ok]                           # нет last_seen (старая форма)
+        for v in ('"x"', "true", "-1e309", "1e309", "NaN", "Infinity", "9" * 400, "0", "-5", "100000000000"):
+            corrupt.append(full(last_ok=v))
+        corrupt.append(full(last_ok="%d" % (N + 100), last_seen="%d" % (N + 100)))         # отметка из будущего
+        for v in ('"x"', "true", "NaN", "%d" % (ok - 30), "%d" % (N + 100), "100000000000"):
+            corrupt.append(full(last_seen=v))                                             # порча, < last_ok, из будущего
+        for v in ('"bad"', "true", "NaN", "%d" % (N + 50), "%d" % (ok - 60), "100000000000"):
+            corrupt.append(full(alarmed_at=v))                                            # порча, будущее, раньше last_ok
+        for raw in corrupt:
+            self._set_mark(raw)
+            rc, sent, out = self._main(self._net(), now=N)
+            self.assertEqual(rc, 10, raw[:80])
+            self.assertTrue(sent, ("порча отметки подавила алярм", raw[:80], out))
 
     def test_mark_write_failure_does_not_break_poller(self):
-        os.makedirs(os.path.join(self.s.root, ".workshop-bin"), exist_ok=True)
-        os.makedirs(os.path.join(self.s.root, poll.TRANSPORT_MARK))    # путь отметки занят каталогом
+        os.makedirs(self._path())                                       # путь отметки занят каталогом
         rc, sent, out = self._main()
         self.assertEqual(rc, 0, out)
         self.assertIn("transport-mark: не записана", out)
         rc, sent, out = self._main(self._net())
         self.assertTrue(sent, out)                                      # отметки нет → консервативно алармим
 
+    def test_write_fails_remove_succeeds_resets_suppression(self):
+        """Удачный цикл: запись отметки отказала (tmp занят каталогом), удаление удалось — старое окно повтора не живёт."""
+        self._main()
+        self.assertEqual(self._alarm_times([600]), [600])
+        tmp = self._path() + ".tmp"
+        os.makedirs(tmp)
+        rc, sent, out = self._main(now=self.NOW + 700)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("transport-mark: не записана", out)
+        self.assertFalse(os.path.exists(self._path()), "старая отметка не удалена")
+        os.rmdir(tmp)
+        self.assertEqual(self._alarm_times([710]), [710])
+
+    def test_unwritable_mark_never_suppresses(self):
+        """Отметку не обновить (каталог 0500) — подавлению не доверяем: алярм сразу и при свежем успехе."""
+        self._main()
+        d = os.path.dirname(self._path())
+        os.chmod(d, 0o500)
+        try:
+            rc, sent, out = self._main(self._net(), now=self.NOW + 30)
+            self.assertTrue(sent, out)
+            self.assertIn("transport-mark: не записана", out)
+        finally:
+            os.chmod(d, 0o755)
+
+    def test_unwritable_mark_after_recovery_does_not_keep_suppression(self):
+        self._main()
+        self._set_mark('{"last_ok": %d, "alarmed_at": %d, "last_seen": %d}' % (self.NOW, self.NOW + 600, self.NOW + 600))
+        d = os.path.dirname(self._path())
+        os.chmod(d, 0o500)                                              # ни записать, ни удалить
+        try:
+            rc, sent, out = self._main(now=self.NOW + 700)               # восстановление — отметку не обновить
+            self.assertEqual(rc, 0, out)
+            self.assertIn("transport-mark: не записана", out)
+            rc, sent, out = self._main(self._net(), now=self.NOW + 1400)
+            self.assertTrue(sent, ("старое подавление пережило восстановление", out))
+        finally:
+            os.chmod(d, 0o755)
 
     def test_undelivered_alarm_does_not_start_realarm_window(self):
         self._main()                                                    # last_ok = NOW
@@ -611,23 +715,41 @@ class TestTransportDebounce(Base):
         self.assertTrue(sent, out)
         self.assertEqual(self._mark()["alarmed_at"], self.NOW + 662)
 
-    def test_unwritable_mark_after_recovery_does_not_keep_suppression(self):
-        import stat
+    def test_decision_failure_alarms(self):
+        """Сбой решения или учёта отметки (инъекция не-OSError в чтение и в запись отметки) — алярм уходит, rc прежний
+        (10 у отказа, 0 у успеха), поллер не падает: все точки входа M5 в main() — решение, учёт алярма, учёт успеха."""
+        def broken(*a, **kw): raise RuntimeError("инъекция")
+        for name in ("_read_mark", "_write_mark"):
+            self._main()
+            orig = getattr(poll, name)
+            setattr(poll, name, broken)
+            try:
+                rc, sent, out = self._main(self._net(), now=self.NOW + 30)
+                self.assertEqual(rc, 10, (name, out))
+                self.assertEqual(len(sent), 1, (name, out))
+                self.assertIn("transport: сбой решения (RuntimeError)", out)
+                self.assertIn("transport-mark: сбой учёта (RuntimeError)", out)
+                rc, sent, out = self._main(now=self.NOW + 40)
+                self.assertEqual(rc, 0, (name, out))
+                self.assertIn("processed=0", out)
+            finally:
+                setattr(poll, name, orig)
+
+    def test_scale_day_long_outage(self):
+        """Масштаб: сутки аварии с шагом 62 с (сброс + backoff 60 + пауза 2). Идеал: первый алярм на первом отказе ≥ 600 с,
+        далее — на первом ≥ 600 с после доставленного: шаг 62 → каждые 10 отказов (620 с)."""
         self._main()
-        self._set_mark('{"last_ok": %d, "alarmed_at": %d}' % (self.NOW, self.NOW + 600))
-        d = os.path.join(self.s.root, ".workshop-bin")
-        os.chmod(d, stat.S_IRUSR | stat.S_IXUSR)                        # 0500: ни записать, ни удалить
-        try:
-            rc, sent, out = self._main(now=self.NOW + 700)               # восстановление — отметку не обновить
-            self.assertEqual(rc, 0, out)
-            rc, sent, out = self._main(self._net(), now=self.NOW + 1400)
-            self.assertTrue(sent, ("старое подавление пережило восстановление", out))
-        finally:
-            os.chmod(d, stat.S_IRWXU)
+        times = list(range(62, 86400 + 1, 62))
+        expect, last = [], None
+        for t in times:                                                 # идеал на истинной истории, независимо от модуля
+            if t >= 600 and (last is None or t - last >= 600):
+                expect.append(t); last = t
+        self.assertEqual(self._alarm_times(times), expect)
+        self.assertEqual(len(expect), 139)
 
     def test_real_transport_keeps_http_status_and_kind(self):
-        """Настоящий default_opener + Transport.call: HTTP 401/403 без JSON-тела — не транзиентны; 502 HTML — транзиентен;
-        обрыв/таймаут — kind network; не-JSON при 2xx — protocol."""
+        """Настоящий default_opener + Transport.call: HTTP 401/403/404 без JSON-тела — не транзиентны; 502/503 HTML/пусто —
+        транзиентны; обрыв/таймаут — kind network; не-JSON при 2xx — protocol."""
         import io, urllib.error, socket
         tg = poll.tg
         orig = tg.urllib.request.urlopen
@@ -647,11 +769,16 @@ class TestTransportDebounce(Base):
             def __exit__(self, *a): return False
             def read(self): return self.b
         cases = [(http(401, b""), False, 401, "http"), (http(403, b"<html>forbidden</html>"), False, 403, "http"),
-                 (unreadable(401), False, 401, "http"), (http(502, b"<html>bad gateway</html>"), True, 502, "http"),
+                 (http(404, b"<html>nf</html>"), False, 404, "http"),
+                 (unreadable(401), False, 401, "http"), (unreadable(502), True, 502, "http"),
+                 (http(502, b"<html>bad gateway</html>"), True, 502, "http"), (http(503, b""), True, 503, "http"),
                  (http(401, b'{"ok": false, "error_code": 401, "description": "Unauthorized"}'), False, 401, "api"),
+                 (http(400, b'{"ok": false, "error_code": 400, "description": "Bad Request"}'), False, 400, "api"),
                  (http(429, b'{"ok": false, "error_code": 429, "description": "Too Many Requests"}'), True, 429, "api"),
+                 (http(500, b'{"ok": false, "error_code": 500, "description": "Internal"}'), True, 500, "api"),
                  (lambda req, timeout=None: (_ for _ in ()).throw(urllib.error.URLError(ConnectionResetError(104, "reset"))), True, None, "network"),
                  (lambda req, timeout=None: (_ for _ in ()).throw(socket.timeout("timed out")), True, None, "network"),
+                 (lambda req, timeout=None: (_ for _ in ()).throw(ConnectionResetError(104, "reset")), True, None, "network"),
                  (lambda req, timeout=None: R(b"<html>ok?</html>"), False, None, "protocol"),
                  (lambda req, timeout=None: R(b'{"result": 1}'), False, None, "protocol")]
         try:
@@ -662,6 +789,7 @@ class TestTransportDebounce(Base):
                 e = cm.exception
                 self.assertEqual((e.error_code, e.kind), (code, kind), str(e))
                 self.assertEqual(poll._is_transient_transport(e), transient, str(e))
+                self.assertNotIn("123:abc", str(e))
         finally:
             tg.urllib.request.urlopen = orig
 
@@ -764,18 +892,16 @@ class TestOffsetTable(Base):
 
     def test_reask_long_variable_parts_keep_every_fixed_fragment(self):
         """Раунд 2, W2: фиксированные части ПОСЛЕ переменной (время начала, подсказка закрытия, «поправь и пришли снова»)
-        уцелевают при переменной части 0/100/300 символов — все шесть reask_*."""
+        уцелевают при переменной части 0/100/300 символов — все шесть reask_* (у 4 и 23 с ЭРРАТЫ D10 «А» переменной части нет)."""
         ctx = poll.Ctx(self.s.root, FakeTransport([]), self.cfg, botrepo.VALIDATOR, bot_username="x", sleeper=lambda x: None)
         help_tail = poll.build_help.help_token(ctx.commands_doc) + " — команды и примеры"
         for n in (0, 100, 300):
             var = "з" * n
             cases = {
-                "reask_unparsed": (poll.reply_text(ctx, "reask_unparsed", {"reply": {"reason": var}}, {}), ["не понял (", ")."]),
                 "reask_invalid": (poll.reply_text(ctx, "reask_invalid", None, {}, {"rule": var}), ["не записал: валидатор отверг строку — правило ", ". Поправь и пришли снова."]),
                 "reask_correction": (poll.reply_text(ctx, "reask_correction", None, {}), ["часы на месте бот не правит", "поправить — в приложении. Не записано."]),
                 "reask_start_already_open": (poll.reply_text(ctx, "reask_start_already_open", {"reply": {"title": var, "started_at_local": "2026-09-07T16:00:00+02:00"}}, {}), ["учёт уже открыт: «", "» с 2026-09-07T16:00:00+02:00. Закрыть — ", TOK["stop"] + "."]),
                 "reask_stop_without_open": (poll.reply_text(ctx, "reask_stop_without_open", None, {}), ["открытого учёта нет."]),
-                "reask_undo_not_found": (poll.reply_text(ctx, "reask_undo_not_found", {"reply": {"reason": var}}, {}), ["нечего отзывать (", ")."]),
             }
             for oc, (reply, fixed) in cases.items():
                 self.assertLessEqual(len(reply), poll.SHORT_REPLY_MAX, (oc, n, reply))
@@ -785,8 +911,16 @@ class TestOffsetTable(Base):
                     self.assertIn(frag, reply, (oc, n, frag, reply))
                 if n >= 300 and oc not in ("reask_correction", "reask_stop_without_open"):
                     self.assertIn("…", reply, (oc, n))      # обрезана переменная часть, и только она
-                if n == 100 and oc in ("reask_unparsed", "reask_undo_not_found"):
-                    self.assertIn(var, reply, (oc, n))      # укладывается — не обрезается
+            # ЭРРАТА D10 «А»: у исходов 4 и 23 причины в ответе НЕТ вовсе (человеческая фраза реестра; причина вне
+            # реестра — фраза-заглушка): ни байта переменной части, одна строка, указатель справки цел, обрезать нечего
+            for oc in ("reask_unparsed", "reask_undo_not_found"):
+                reply = poll.reply_text(ctx, oc, {"reply": {"reason": var}}, {})
+                self.assertLessEqual(len(reply), poll.SHORT_REPLY_MAX, (oc, n, reply))
+                self.assertEqual(len(reply.split("\n")), 1, (oc, n))
+                self.assertTrue(reply.endswith(help_tail), (oc, n, reply))
+                self.assertNotIn("…", reply, (oc, n))
+                if n:
+                    self.assertNotIn("зз", reply, (oc, n, reply))
 
     def test_main_turns_any_exception_into_tool_failure_with_alarm(self):
         """Раунд 2 W3 / раунд 3 W1+R3: ЛЮБОЕ исключение поллера (все прежние «тихие» классы включительно) → TOOL_FAILURE
@@ -903,9 +1037,9 @@ class TestOffsetTable(Base):
             oc = r["outcomes"][-1][1]
             self.assertNotIn(oc, ("tool_failure",), (pos["id"], oc))
             if pos["time_bearing"]:
-                self.assertEqual(oc, "reask_unparsed", pos["id"]); self.assertIn("callback_time_bearing", t.sent[-1][1])
+                self.assertEqual(oc, "reask_unparsed", pos["id"]); self.assertEqual(botrepo.traced_reason(ctx), "callback_time_bearing"); self.assertNotIn("callback_time_bearing", t.sent[-1][1])
             elif not pos["callback_allowed"]:
-                self.assertEqual(oc, "reask_unparsed", pos["id"]); self.assertIn("callback_not_allowed", t.sent[-1][1])
+                self.assertEqual(oc, "reask_unparsed", pos["id"]); self.assertEqual(botrepo.traced_reason(ctx), "callback_not_allowed"); self.assertNotIn("callback_not_allowed", t.sent[-1][1])
             else:
                 self.assertNotEqual(oc, "reask_unparsed", (pos["id"], oc, t.sent[-1][1] if t.sent else None))
             self.assertEqual(self.offset(), r["outcomes"][-1][0] + 1)
