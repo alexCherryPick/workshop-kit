@@ -101,7 +101,7 @@ inputs:
   - path: "spec/09-tg-bot-time-line/06-boundaries-and-traceability.md"
     sha256: "e4187151bcd5de7408c17930d0aa5e8c06f3eaf911d91ae5cb1aa6cd40862ffd"
   - path: "spec/09-tg-bot-time-line/tg-bot.yaml"
-    sha256: "0f42e20790528379e84c55845712fb638af21ea41cc8d2cd5a10cee6fe7062b1"
+    sha256: "2e86a69fe91c93b727c7b3d0e93aff24309053e1371c70aab1e7413a96dba409"
   - path: "spec/10-spec-assembly/00-profile-contract.md"
     sha256: "99747fe9ceb896bdd42ff2f014cfcb6bc62a7fb9f643bd95d737de42f28faf18"
   - path: "spec/10-spec-assembly/01-generation-and-gates.md"

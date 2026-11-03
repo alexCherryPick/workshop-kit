@@ -776,17 +776,12 @@ class KitRefTests(unittest.TestCase):
 
     def test_release_layer_commit_over_pinned_code_commit(self):
         # релизный слой (находка живого прогона): R над K меняет ТОЛЬКО пины → ok; любой иной файл → отказ
-        K = self.head
-        os.makedirs(os.path.join(self.checkout, "bot", "kit", "workflows"))
-        for rel in ("bot/kit/validator-release.yaml", "bot/kit/workflows/bootstrap.yml", "bot/kit/manifest.yaml"):
-            with open(os.path.join(self.checkout, rel), "w") as fh:
-                fh.write("pins\n")
-        git(self.checkout, "add", "-A"); git(self.checkout, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-qm", "release layer")
+        K = self._customer_k()
+        self._commit_release({"bot/kit/validator-release.yaml": "pins\n", "bot/kit/workflows/bootstrap.yml": "pins\n",
+                              "bot/kit/manifest.yaml": self._manifest(ver={"bot/kit/validator-release.yaml": "r"})})
         rc, out = self._run(K)
         self.assertEqual(rc, 0, out); self.assertIn("релизный слой", out); self.assertIn(K, out)
-        with open(os.path.join(self.checkout, "bot", "poll.py"), "w") as fh:
-            fh.write("code\n")
-        git(self.checkout, "add", "-A"); git(self.checkout, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-q", "--amend", "-m", "release layer + code")
+        self._commit_release({"bot/poll.py": "code changed\n"}, msg="release layer + code", amend=True)
         rc, out = self._run(K)
         self.assertEqual(rc, 2); self.assertIn("меняет не только пины", out); self.assertIn("bot/poll.py", out)
         # два коммита над K — не слой
@@ -858,14 +853,19 @@ class KitRefTests(unittest.TestCase):
                   {"profiles/out/x.py": "evil\n"}, "profiles/out/x.py"),
                  ("unchanged_sha", self._manifest(ver=dict(fresh, **{"bot/poll.py": "r"})), None, "bot/poll.py"),
                  ("top_level", self._manifest(ver=fresh, kit_version="0.2.0"), None, "kit_version"),
-                 ("unreadable", "pins\n", None, "не читается"))
+                 ("unreadable", "pins\n", None, "не читается"),
+                 ("removed", self._manifest(ver=fresh, route=[x for x in route if x[0] != "bot/poll.py"]), None, "только bot/poll.py"))
         for name, manifest, extra, needle in cases:
             git(self.checkout, "reset", "-q", "--hard", self.head)
             K = self._customer_k()
             self._customer_r(manifest, extra)
             rc, out = self._run(K)
             self.assertEqual(rc, 2, (name, out))
-            self.assertIn(needle, out, name)
+            if needle == "только bot/poll.py":
+                # F-T7b-02: пропуск одной записи назван ею одной, остальные записи не «сдвигаются» в перечень
+                self.assertIn("файлов: bot/poll.py — назначения", out, name)
+            else:
+                self.assertIn(needle, out, name)
         # изменён ТОЛЬКО пиннинг (sources-manifest), и манифест R раскладывает его кодом
         git(self.checkout, "reset", "-q", "--hard", self.head)
         K = self._customer_k()
@@ -911,13 +911,51 @@ class KitRefTests(unittest.TestCase):
         self.assertEqual(rc, 2, out)
         self.assertIn("bot/poll.py", out)
 
+    def test_release_layer_paths_parsed_by_nul(self):
+        # F-02 (R1 T7a): путь — ровно то, что между NUL: путь с пробелом из двух «половин»-путей слоя вне слоя — отказ
+        # с его именем; путь слоя с пробелом и не-ASCII путь слоя — приняты (C-кавычки git их не портят)
+        fresh = dict.fromkeys(self._FRESH, "r")
+        K = self._customer_k()
+        self._customer_r(self._manifest(ver=fresh, layer="b" * 64), extra={"bot/kit/manifest.yaml profiles/out/evil.py": "evil\n"})
+        rc, out = self._run(K)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("bot/kit/manifest.yaml profiles/out/evil.py", out)
+        git(self.checkout, "reset", "-q", "--hard", self.head)
+        K = self._customer_k()
+        self._customer_r(self._manifest(ver=fresh, layer="b" * 64),
+                         extra={"profiles/out/с пробелом.md": "x\n", "profiles/out/.workshop-ai/часы-ü.md": "y\n"})
+        rc, out = self._run(K)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("profiles/out/с пробелом.md", out)
+        self.assertIn("profiles/out/.workshop-ai/часы-ü.md", out)
+
+    def test_release_layer_diff_failure_named(self):
+        # F-02 (R1 T7a): сбой git diff (объект дерева R недоступен) — именованный отказ, а не пустой перечень изменений
+        K = self._customer_k()
+        self._customer_r(self._manifest(ver=dict.fromkeys(self._FRESH, "r"), layer="b" * 64))
+        tree = git(self.checkout, "rev-parse", "HEAD:profiles/out").stdout.strip()
+        os.remove(os.path.join(self.checkout, ".git", "objects", tree[:2], tree[2:]))
+        rc, out = self._run(K)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("git diff", out)
+        self.assertIn("релизный слой не проверить", out)
+
+    def test_release_layer_pins_only_route_must_be_k(self):
+        # N-08 (R1 T7a): сверка маршрута манифеста — у ЛЮБОГО релизного коммита, и без выходов под слой: релиз из одних
+        # пинов, чей манифест кладёт файл K ролью code в иное место, — отказ с именем записи
+        K = self._customer_k()
+        moved = [(s, ".workshop/bot/x.py" if s == "bot/poll.py" else d, r) for s, d, r in self._ROUTE]
+        self._commit_release({"bot/kit/validator-release.yaml": "pins\n", "bot/kit/manifest.yaml": self._manifest(
+            ver={"bot/kit/validator-release.yaml": "r"}, route=moved)})
+        rc, out = self._run(K)
+        self.assertEqual(rc, 2, out)
+        self.assertIn("bot/poll.py", out)
+
     def test_release_layer_needs_depth_two_shallow_clone_named(self):
         # живой прогон 2026-09-08: мелкий клон (depth 1) у релизного коммита R не имеет родителя — отказ обязан НАЗВАТЬ причину
-        K = self.head
-        os.makedirs(os.path.join(self.checkout, "bot", "kit"))
-        with open(os.path.join(self.checkout, "bot", "kit", "validator-release.yaml"), "w") as fh:
-            fh.write("pins\n")
-        git(self.checkout, "add", "-A"); git(self.checkout, "-c", "user.name=t", "-c", "user.email=t@invalid", "commit", "-qm", "release layer")
+        K = self._customer_k()
+        self._commit_release({"bot/kit/validator-release.yaml": "pins\n",
+                              "bot/kit/manifest.yaml": self._manifest(ver={"bot/kit/validator-release.yaml": "r"})})
         R = git(self.checkout, "rev-parse", "HEAD").stdout.strip()
         shallow = tempfile.mkdtemp(prefix="shallow-")
         import subprocess as _sp
@@ -948,6 +986,24 @@ class KitRefTests(unittest.TestCase):
         git(self.checkout, "remote", "set-url", "origin", "git@example.invalid:alexCherryPick/workshop-kit.git")
         rc, out = self._run(self.head)
         self.assertEqual(rc, 0, out)
+
+
+class KitManifestFreshTests(unittest.TestCase):
+    def test_committed_manifest_equals_rebuild(self):
+        # F-T7b-01 (R1 T7b): коммитный манифест комплекта == пересборке по дереву; устаревший манифест K дал бы релиз,
+        # который check-kit-ref заказчика отвергает (сверка маршрута манифеста R с манифестом K)
+        man = os.path.join(_KIT, "manifest.yaml")
+        if not os.path.isfile(os.path.join(_ROOT, "profiles", "sources-manifest.yaml")):
+            self.skipTest("нет выходов генератора профилей рядом с комплектом")
+        import re as _re
+        with open(man, encoding="utf-8") as fh:
+            kv = _re.search(r"^kit_version: (\S+)$", fh.read(), _re.M).group(1)
+        out = os.path.join(tempfile.mkdtemp(prefix="fresh-"), "manifest.yaml")
+        rc, txt = run([os.path.join(_KIT, "build_manifest.py"), "--kit", _KIT, "--out", out, "--require-profiles", "--kit-version", kv])
+        self.assertEqual(rc, 0, txt)
+        with open(out, "rb") as a, open(man, "rb") as b:
+            self.assertEqual(a.read(), b.read(), "bot/kit/manifest.yaml устарел: пересоберите build_manifest.py --require-profiles")
+        shutil.rmtree(os.path.dirname(out), ignore_errors=True)
 
 
 class ValidatorVerifyTests(unittest.TestCase):

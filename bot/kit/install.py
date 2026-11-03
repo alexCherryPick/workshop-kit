@@ -8,8 +8,8 @@
   check-kit-ref   HEAD checkout'а комплекта == kit.ref из kit/validator-release.yaml (пин комплекта) либо HEAD —
                   релизный коммит ровно над kit.ref, меняющий только релизный слой: пины (манифест релиза, обёртки,
                   манифест комплекта) и — у релиза заказчика R_c (D10 T7) — выходы генератора под его слой
-                  (profiles/out/**, profiles/sources-manifest.yaml); при них манифест комплекта обязан совпадать с
-                  манифестом kit.ref во всём, кроме sha256 изменённых источников и привязки customer_layer;
+                  (profiles/out/**, profiles/sources-manifest.yaml); манифест комплекта релизного коммита обязан
+                  совпадать с манифестом kit.ref во всём, кроме sha256 изменённых источников и привязки customer_layer;
                   origin checkout'а == kit.repository; плейсхолдер вместо SHA — отказ «пин не заполнен», не пропуск
   check-secrets   имена секретов из kit/install-steps.yaml присутствуют в окружении (значения не
                   печатаются): по реестру secrets И по шагам (поле required_secrets)
@@ -213,8 +213,13 @@ def _manifest_at(kit_root, commit):
     except (UnicodeDecodeError, yamlmini.YamlError):
         doc = None
     if not isinstance(doc, dict) or not isinstance(doc.get("entries"), list):
-        raise Refuse("манифест комплекта bot/kit/manifest.yaml коммита %s не читается — маршрут выходов под слой заказчика не проверить" % commit[:12])
+        raise Refuse("манифест комплекта bot/kit/manifest.yaml коммита %s не читается — маршрут манифеста релизного коммита не проверить" % commit[:12])
     return doc
+
+
+def _shown(path):
+    # путь для печати: байты вне UTF-8 (surrogateescape из -z) — \x-экранами, а не UnicodeEncodeError при выводе (N-T7b-07)
+    return path.encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
 
 
 def _same_manifest_route(kit_root, k, r, changed):
@@ -226,11 +231,18 @@ def _same_manifest_route(kit_root, k, r, changed):
         return d
     mk, mr = route(_manifest_at(kit_root, k)), route(_manifest_at(kit_root, r))
     if mk != mr:
-        ek, er = mk["entries"], mr["entries"]
-        diff = [str((er[i] if i < len(er) else ek[i]).get("src")) for i in range(max(len(ek), len(er)))
-                if i >= len(ek) or i >= len(er) or ek[i] != er[i]]
+        # расхождения называются по src записи (а не по позиции: пропуск одной записи не «сдвигает» имена остальных)
+        def by_src(es):
+            out = {}
+            for e in es:
+                out.setdefault(str(e.get("src")) if isinstance(e, dict) else repr(e), []).append(e)
+            return out
+        bk, br = by_src(mk["entries"]), by_src(mr["entries"])
+        diff = sorted(x for x in set(bk) | set(br) if bk.get(x) != br.get(x))
+        if not diff and mk["entries"] != mr["entries"]:
+            diff = ["порядок записей"]
         diff += sorted(x for x in set(mk) | set(mr) if x != "entries" and mk.get(x) != mr.get(x))
-        raise Refuse("релизный коммит %s несёт выходы под слой заказчика, а его манифест расходится с манифестом kit.ref %s не только sha256 изменённых файлов: %s — назначения и роли обязаны быть теми, что у K" % (r[:12], k[:12], ", ".join(diff[:8])))
+        raise Refuse("манифест релизного коммита %s расходится с манифестом kit.ref %s не только sha256 изменённых файлов: %s — назначения и роли обязаны быть теми, что у K" % (r[:12], k[:12], ", ".join(diff[:8])))
 
 
 def cmd_check_kit_ref(args):
@@ -264,17 +276,21 @@ def cmd_check_kit_ref(args):
             raise Refuse("пин комплекта расходится: HEAD checkout'а %s (корневой коммит), манифест релиза kit.ref %s" % (actual, expected))
         if parent.stdout.strip() != expected:
             raise Refuse("пин комплекта расходится: HEAD checkout'а %s, манифест релиза kit.ref %s (и HEAD не релизный слой над ним)" % (actual, expected))
-        # --no-renames: переименование кода в путь релизного слоя называет ОБЕ стороны (иначе виден только новый путь)
-        changed = _git(kit_root, "diff", "--name-only", "--no-renames", expected, actual).stdout.split()
+        # --no-renames: переименование кода в путь релизного слоя называет ОБЕ стороны (иначе виден только новый путь);
+        # -z: путь — ровно то, что между NUL, без C-кавычек git и без резки по пробелам (иначе путь с пробелом из двух
+        # «половин»-путей слоя проходил бы, а не-ASCII путь слоя приходил бы в кавычках и отвергался — F-02 R1 T7a)
+        d = subprocess.run(["git", "-C", kit_root, "diff", "--name-only", "--no-renames", "-z", expected, actual], capture_output=True)
+        if d.returncode != 0:
+            raise Refuse("git diff %s..%s в checkout'е комплекта: %s — релизный слой не проверить" % (expected[:12], actual[:12], d.stderr.decode("utf-8", "replace").strip()))
+        changed = [p for p in d.stdout.decode("utf-8", "surrogateescape").split("\0") if p]
         extra = sorted(p for p in set(changed) if not _in_release_layer(p))
         if extra:
-            raise Refuse("релизный коммит %s меняет не только пины над kit.ref %s: %s — код обязан быть кодовым коммитом манифеста" % (actual[:12], expected[:12], ", ".join(extra)))
-        # выходы под слой заказчика — НОВЫЕ байты над K, а манифест комплекта сам в релизном слое: без сверки маршрута
-        # манифест R мог бы разложить их кодом или поверх кода. Манифест R обязан совпадать с манифестом K во всём, кроме
-        # sha256 записей, чей источник изменён в R, и sha256 привязки customer_layer: назначения и роли — те, что у K
-        if any(p.startswith(RELEASE_LAYER_PREFIXES) or p == "profiles/sources-manifest.yaml" for p in changed):
-            _same_manifest_route(kit_root, expected, actual, set(changed))
-        layer_note = " (HEAD %s — релизный слой над kit.ref: изменены только %s)" % (actual[:12], ", ".join(changed) or "ничего")
+            raise Refuse("релизный коммит %s меняет не только пины над kit.ref %s: %s — код обязан быть кодовым коммитом манифеста" % (actual[:12], expected[:12], ", ".join(_shown(p) for p in extra)))
+        # манифест комплекта сам в релизном слое: без сверки маршрута он мог бы разложить новые байты слоя (выходы под
+        # слой заказчика) кодом или поверх кода, а файлы K — не туда. Манифест R обязан совпадать с манифестом K во всём,
+        # кроме sha256 записей, чей источник изменён в R, и sha256 привязки customer_layer — у ЛЮБОГО релизного коммита
+        _same_manifest_route(kit_root, expected, actual, set(changed))
+        layer_note = " (HEAD %s — релизный слой над kit.ref: изменены только %s)" % (actual[:12], ", ".join(_shown(p) for p in changed) or "ничего")
     r = _git(kit_root, "remote", "get-url", "origin")
     if r.returncode == 0:
         url = r.stdout.strip()
